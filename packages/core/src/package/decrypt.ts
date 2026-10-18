@@ -1,4 +1,10 @@
-import { MAX_HEADER_SIZE, PACKAGE_MAGIC, PACKAGE_PREAMBLE_SIZE, RECORD_SIZE } from '../constants.js';
+import {
+  MAX_HEADER_SIZE,
+  MAX_PASSWORD_LENGTH,
+  PACKAGE_MAGIC,
+  PACKAGE_PREAMBLE_SIZE,
+  RECORD_SIZE,
+} from '../constants.js';
 import { parseHeader } from '../crypto/header.js';
 import { decryptRecord, recordPlainLength } from '../crypto/records.js';
 import { base64UrlToBytes, bytesEqual, bytesToHex, readU32be, utf8ToBytes } from '../encoding.js';
@@ -135,8 +141,12 @@ export async function decryptPackage(req: DecryptRequest): Promise<DecryptResult
   const { manifest, provider, signal, onProgress } = req;
   const report = onProgress ?? (() => undefined);
 
-  if (typeof req.password !== 'string' || req.password.length === 0) {
-    throw new HandshackError('invalid-password', 'empty password');
+  if (typeof req.password !== 'string' || req.password.length === 0 || req.password.length > MAX_PASSWORD_LENGTH) {
+    throw new HandshackError(
+      'invalid-password',
+      'password length outside supported range',
+      `Use a password no longer than ${MAX_PASSWORD_LENGTH} characters.`,
+    );
   }
   throwIfAborted(signal);
 
@@ -186,11 +196,10 @@ export async function decryptPackage(req: DecryptRequest): Promise<DecryptResult
 
   const fileName = safeFileName(header.origName, 'handshack-restored');
   const sink = await req.openOutput(fileName, header.origSize);
-  throwIfAborted(signal);
-
   const passwordBytes = utf8ToBytes(req.password);
   let key: Uint8Array | null = null;
   try {
+    throwIfAborted(signal);
     report({ phase: 'deriving-key', done: 0, total: 1 });
     key = await provider.deriveKey(passwordBytes, base64UrlToBytes(header.salt), {
       n: header.kdfN,
@@ -239,6 +248,7 @@ export async function decryptPackage(req: DecryptRequest): Promise<DecryptResult
     await sink.abort().catch(() => undefined);
     throw err;
   } finally {
+    passwordBytes.fill(0);
     if (key) key.fill(0);
   }
 }

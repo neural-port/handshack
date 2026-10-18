@@ -162,6 +162,81 @@ async function findCollisions(dirRaw: unknown, baseRaw: unknown): Promise<string
   return hits;
 }
 
+class OutputCommitError extends HandshackError {
+  readonly recoveryDataRetained = true;
+
+  constructor(stageDir: string, details: string) {
+    super(
+      'save-failed',
+      `output commit rollback failed; recovery files retained at ${stageDir}: ${details}`,
+      'The package could not be fully saved. Recovery files were retained in a hidden folder in the output directory; do not remove it.',
+    );
+  }
+}
+
+/**
+ * Publish a staged set of files as one recoverable transaction. Existing files
+ * are moved aside first, and restored if any later rename fails.
+ */
+async function commitStagedFiles(
+  stagedPaths: string[],
+  finalPaths: string[],
+  backupDir: string,
+  overwrite: boolean,
+): Promise<void> {
+  if (stagedPaths.length !== finalPaths.length) {
+    throw new HandshackError('internal-error', 'staged and final file counts differ');
+  }
+  await fs.mkdir(backupDir, { recursive: true });
+  const installed: string[] = [];
+  const backups: { backup: string; target: string }[] = [];
+  try {
+    for (let i = 0; i < finalPaths.length; i++) {
+      const target = finalPaths[i]!;
+      const staged = stagedPaths[i]!;
+      let existing: Awaited<ReturnType<typeof fs.lstat>> | null = null;
+      try {
+        existing = await fs.lstat(target);
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      }
+      if (existing) {
+        if (!overwrite) {
+          throw new HandshackError('save-failed', `destination appeared during write: ${target}`);
+        }
+        if (!existing.isFile()) {
+          throw new HandshackError('save-failed', `refusing to replace a non-file destination: ${target}`);
+        }
+        const backup = path.join(backupDir, `${i}.backup`);
+        await fs.rename(target, backup);
+        backups.push({ backup, target });
+      }
+      await fs.rename(staged, target);
+      installed.push(target);
+    }
+  } catch (err) {
+    const rollbackErrors: string[] = [];
+    for (const target of installed.reverse()) {
+      try {
+        await fs.rm(target, { force: true });
+      } catch (rollbackErr) {
+        rollbackErrors.push(String(rollbackErr));
+      }
+    }
+    for (const { backup, target } of backups.reverse()) {
+      try {
+        await fs.rename(backup, target);
+      } catch (rollbackErr) {
+        rollbackErrors.push(String(rollbackErr));
+      }
+    }
+    if (rollbackErrors.length > 0) {
+      throw new OutputCommitError(backupDir, rollbackErrors.join('; '));
+    }
+    throw err;
+  }
+}
+
 /* ---------- encrypt ---------- */
 
 async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promise<EncryptOutcome> {
@@ -191,13 +266,16 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
     throw new HandshackError('save-failed', `existing: ${collisions[0]}`, `Files for "${base}" already exist in the selected folder.`);
   }
 
+  const stageDir = await fs.mkdtemp(path.join(outputDir, '.handshack-stage-'));
+  const backupDir = path.join(stageDir, 'backups');
   const ctrl = new AbortController();
   currentOp = ctrl;
   const report = (e: ProgressEvent) => sender.send('op:progress', e);
-
-  const partPaths: string[] = [];
-  const source = await FileByteSource.open(inputPath);
+  const stagedPartPaths: string[] = [];
+  let source: FileByteSource | null = null;
+  let preserveStage = false;
   try {
+    source = await FileByteSource.open(inputPath);
     const result = await encryptFile({
       source,
       fileName: path.basename(inputPath),
@@ -208,15 +286,27 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
       onProgress: report,
       generator: 'handshack-desktop',
       openPartSink: (_i, name) => {
-        const p = path.join(outputDir, name);
-        partPaths.push(p);
-        approvedPaths.add(p);
+        const p = path.join(stageDir, name);
+        stagedPartPaths.push(p);
         return FileByteSink.create(p, overwrite);
       },
     });
+    const stagedManifestPath = path.join(stageDir, result.manifestFileName);
+    await fs.writeFile(stagedManifestPath, result.manifestText, { encoding: 'utf8', flag: 'wx' });
+    const partPaths = result.partNames.map((name) => path.join(outputDir, name));
     const manifestPath = path.join(outputDir, result.manifestFileName);
-    await fs.writeFile(manifestPath, result.manifestText, 'utf8');
-    approvedPaths.add(manifestPath);
+    try {
+      await commitStagedFiles(
+        [...stagedPartPaths, stagedManifestPath],
+        [...partPaths, manifestPath],
+        backupDir,
+        overwrite,
+      );
+    } catch (err) {
+      preserveStage = err instanceof OutputCommitError && err.recoveryDataRetained;
+      throw err;
+    }
+    for (const p of [...partPaths, manifestPath]) approvedPaths.add(p);
     return {
       manifestPath,
       partPaths,
@@ -229,8 +319,9 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
       manifestName: result.manifestFileName,
     };
   } finally {
-    await source.close();
+    await source?.close();
     currentOp = null;
+    if (!preserveStage) await fs.rm(stageDir, { recursive: true, force: true });
   }
 }
 

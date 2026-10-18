@@ -11,6 +11,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { MAX_PASSWORD_LENGTH } from '@handshack/core';
 import { formatBytes } from '../format.js';
 
 /* ---------- Alert ---------- */
@@ -66,6 +67,7 @@ export function PasswordField({
           className={`input${error ? ' invalid' : ''}`}
           type={show ? 'text' : 'password'}
           value={value}
+          maxLength={MAX_PASSWORD_LENGTH}
           autoComplete={autoComplete}
           placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}

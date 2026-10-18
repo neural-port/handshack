@@ -3,7 +3,6 @@
  * All cryptography runs in a dedicated Web Worker (crypto.worker.ts);
  * file content never leaves the page.
  */
-import { unzip, zip, type UnzipFileFilter, type Zippable } from 'fflate';
 import {
   HandshackError,
   isManifestFileName,
@@ -23,6 +22,7 @@ import type {
 } from '@handshack/ui';
 import type { ProgressCallback } from '@handshack/core';
 import type { WorkerRequest, WorkerResponse } from './worker/protocol.js';
+import type { ZipWorkerRequest, ZipWorkerResponse } from './worker/zip-protocol.js';
 
 declare global {
   interface Window {
@@ -57,10 +57,15 @@ function runWorkerJob(
       type: 'module',
     });
     const jobId = 1;
-    const onAbort = () => worker.terminate();
+    let settled = false;
+    const onAbort = () => {
+      cleanup();
+      reject(new HandshackError('cancelled'));
+    };
     signal.addEventListener('abort', onAbort);
     worker.onmessage = (ev: MessageEvent<WorkerResponse>) => {
       const msg = ev.data;
+      if (msg.jobId !== jobId || settled) return;
       if (msg.kind === 'progress') {
         onProgress({ phase: msg.phase as never, done: msg.done, total: msg.total });
         return;
@@ -76,58 +81,70 @@ function runWorkerJob(
       cleanup();
       reject(toHandshackError(e.error ?? e));
     };
+    worker.onmessageerror = () => {
+      cleanup();
+      reject(new HandshackError('internal-error', 'invalid crypto worker response'));
+    };
     function cleanup() {
+      if (settled) return;
+      settled = true;
       signal.removeEventListener('abort', onAbort);
       worker.terminate();
     }
-    worker.postMessage(request(jobId));
+    try {
+      worker.postMessage(request(jobId));
+    } catch (error) {
+      cleanup();
+      reject(toHandshackError(error));
+    }
     if (signal.aborted) onAbort();
   });
 }
 
-/* ---------- ZIP import/export (fflate, STORE only — contents are already encrypted) ---------- */
+/* ---------- ZIP import/export in a separate worker ---------- */
 
-/** Max decompressed size per ZIP entry (256 MiB) — prevents zip bombs. */
-const ZIP_MAX_ENTRY_SIZE = 256 * 1024 * 1024;
-/** Max total decompressed size across all entries (1 GiB) — prevents exhaustion. */
-const ZIP_MAX_TOTAL_SIZE = 1024 * 1024 * 1024;
-/** Max number of entries — prevents exhaustion via millions of tiny files. */
-const ZIP_MAX_ENTRIES = 4096;
-
-function unzipAsync(bytes: Uint8Array, filter: UnzipFileFilter): Promise<Record<string, Uint8Array>> {
+function runZipJob(request: ZipWorkerRequest): Promise<ZipWorkerResponse> {
   return new Promise((resolve, reject) => {
-    unzip(bytes, { filter }, (err, data) => (err ? reject(err) : resolve(data)));
+    const worker = new Worker(new URL('./worker/zip-worker.ts', import.meta.url), { type: 'module' });
+    let settled = false;
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      worker.terminate();
+    };
+    worker.onmessage = (event: MessageEvent<ZipWorkerResponse>) => {
+      if (settled) return;
+      cleanup();
+      const response = event.data;
+      if (response.kind === 'error') {
+        reject(new HandshackError(response.code as never, undefined, response.message));
+      } else {
+        resolve(response);
+      }
+    };
+    worker.onerror = (event) => {
+      cleanup();
+      reject(toHandshackError(event.error ?? event));
+    };
+    worker.onmessageerror = () => {
+      cleanup();
+      reject(new HandshackError('internal-error', 'invalid ZIP worker response'));
+    };
+    try {
+      worker.postMessage(request);
+    } catch (error) {
+      cleanup();
+      reject(toHandshackError(error));
+    }
   });
 }
 
-async function expandZipFile(f: File, bytes: Uint8Array): Promise<File[]> {
-  let entries: Record<string, Uint8Array>;
-  try {
-    entries = await unzipAsync(bytes, (entry) => entry.name.length < 512 && entry.originalSize <= ZIP_MAX_ENTRY_SIZE);
-  } catch {
-    throw new HandshackError('invalid-input', `cannot read ${f.name} as a ZIP archive`, `The file "${f.name}" does not appear to be a valid ZIP archive.`);
+async function expandZipFile(file: File): Promise<File[]> {
+  const result = await runZipJob({ kind: 'unzip', file });
+  if (result.kind !== 'unzip-result') {
+    throw new HandshackError('internal-error', 'unexpected ZIP worker reply');
   }
-  const entryNames = Object.keys(entries);
-  if (entryNames.length > ZIP_MAX_ENTRIES) {
-    throw new HandshackError('invalid-input', `ZIP has too many entries (${entryNames.length})`, `The archive "${f.name}" has too many files inside.`);
-  }
-  let total = 0;
-  const out: File[] = [];
-  const seen = new Set<string>();
-  for (const [path, data] of Object.entries(entries)) {
-    total += data.length;
-    if (total > ZIP_MAX_TOTAL_SIZE) {
-      throw new HandshackError('invalid-input', `ZIP decompresses to more than ${ZIP_MAX_TOTAL_SIZE} bytes`, `The archive "${f.name}" is too large to expand.`);
-    }
-    // Normalize + validate: no traversal, no absolute paths, basename only.
-    const base = path.split('/').pop() ?? '';
-    if (!base || base.startsWith('.') || /[/\\]/.test(base) || base.includes('..')) continue;
-    if (data.length === 0) continue;
-    if (seen.has(base)) continue;
-    seen.add(base);
-    out.push(new File([data.slice()], base));
-  }
-  return out;
+  return result.files;
 }
 
 async function expandInputs(files: SelectedFileRef[]): Promise<SelectedFileRef[]> {
@@ -135,8 +152,7 @@ async function expandInputs(files: SelectedFileRef[]): Promise<SelectedFileRef[]
   for (const ref of files) {
     const f = ref.handle as File;
     if (/\.zip$/i.test(f.name)) {
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      for (const inner of await expandZipFile(f, bytes)) out.push(refFromFile(inner));
+      for (const inner of await expandZipFile(f)) out.push(refFromFile(inner));
     } else {
       out.push(ref);
     }
@@ -231,16 +247,12 @@ async function downloadZip(
   manifestText: string,
   parts: { name: string; blob: Blob }[],
 ): Promise<void> {
-  const files: Zippable = {};
-  files[manifestName] = new TextEncoder().encode(manifestText);
-  for (const p of parts) {
-    files[p.name] = new Uint8Array(await p.blob.arrayBuffer());
+  const result = await runZipJob({ kind: 'zip', manifestName, manifestText, parts });
+  if (result.kind !== 'zip-result') {
+    throw new HandshackError('internal-error', 'unexpected ZIP worker reply');
   }
-  const zipped = await new Promise<Uint8Array>((resolve, reject) => {
-    zip(files, { level: 0 }, (err, data) => (err ? reject(err) : resolve(data))); // STORE — contents are already encrypted
-  });
   const base = manifestName.replace(/\.hsmanifest\.json$/, '');
-  anchorDownload(`${base}-package.zip`, new Blob([zipped.slice()], { type: 'application/zip' }));
+  anchorDownload(`${base}-package.zip`, result.blob);
 }
 
 /* ---------- release info (build-time env) ---------- */

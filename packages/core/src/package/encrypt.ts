@@ -1,5 +1,7 @@
 import {
   KDF_DEFAULTS,
+  MAX_PART_COUNT,
+  MAX_PASSWORD_LENGTH,
   PACKAGE_ID_BYTES,
   PACKAGE_ID_PREFIX,
   PACKAGE_PREAMBLE_SIZE,
@@ -72,11 +74,15 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
   const { source, provider, signal, onProgress } = req;
   const report = onProgress ?? (() => undefined);
 
-  if (typeof req.password !== 'string' || req.password.length < MIN_PASSWORD_LENGTH) {
+  if (
+    typeof req.password !== 'string' ||
+    req.password.length < MIN_PASSWORD_LENGTH ||
+    req.password.length > MAX_PASSWORD_LENGTH
+  ) {
     throw new HandshackError(
       'invalid-password',
-      'password below minimum length',
-      `Enter a password of at least ${MIN_PASSWORD_LENGTH} characters.`,
+      'password length outside supported range',
+      `Use a password between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters.`,
     );
   }
   validateInputFileSize(source.size);
@@ -84,6 +90,15 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
   const origName = sanitizeFileName(req.fileName);
   const kdfParams = { ...KDF_DEFAULTS };
   validateKdfParams(kdfParams);
+  const minimumPackageSize =
+    PACKAGE_PREAMBLE_SIZE + 1 + payloadSizeFor(source.size);
+  if (Math.ceil(minimumPackageSize / req.chunkSize) > MAX_PART_COUNT) {
+    throw new HandshackError(
+      'too-many-parts',
+      `file cannot fit within ${MAX_PART_COUNT} parts at chunk size ${req.chunkSize}`,
+      `This file would require more than ${MAX_PART_COUNT} parts. Choose a larger part size.`,
+    );
+  }
 
   report({ phase: 'validating', done: 0, total: 0 });
   throwIfAborted(signal);
@@ -193,6 +208,7 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
     await router.abort().catch(() => undefined);
     throw err;
   } finally {
+    passwordBytes.fill(0);
     if (key) key.fill(0);
   }
 }
@@ -212,20 +228,24 @@ export async function verifyWrittenParts(
     throwIfAborted(signal);
     const part = manifest.parts[i]!;
     const src = await openPartSource(i);
-    if (src.size !== part.size) {
-      throw new HandshackError('part-mismatch', `written part ${part.name} has size ${src.size}, expected ${part.size}`);
+    try {
+      if (src.size !== part.size) {
+        throw new HandshackError('part-mismatch', `written part ${part.name} has size ${src.size}, expected ${part.size}`);
+      }
+      const hasher = provider.createSha256();
+      for (let off = 0; off < src.size; off += RECORD_SIZE) {
+        throwIfAborted(signal);
+        const n = Math.min(RECORD_SIZE, src.size - off);
+        hasher.update(await src.read(off, n));
+      }
+      const hex = bytesToHex(await hasher.digest());
+      if (hex !== part.sha256) {
+        throw new HandshackError('part-corrupt', `written part ${part.name} failed checksum`);
+      }
+      done += src.size;
+      report({ phase: 'verifying', done, total: manifest.encryptedSize });
+    } finally {
+      await src.close?.();
     }
-    const hasher = provider.createSha256();
-    for (let off = 0; off < src.size; off += RECORD_SIZE) {
-      const n = Math.min(RECORD_SIZE, src.size - off);
-      hasher.update(await src.read(off, n));
-    }
-    const hex = bytesToHex(await hasher.digest());
-    await src.close?.();
-    if (hex !== part.sha256) {
-      throw new HandshackError('part-corrupt', `written part ${part.name} failed checksum`);
-    }
-    done += src.size;
-    report({ phase: 'verifying', done, total: manifest.encryptedSize });
   }
 }

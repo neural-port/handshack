@@ -9,7 +9,7 @@ import {
   RotateCcw,
   Save,
 } from 'lucide-react';
-import { userMessageFor } from '@handshack/core';
+import { MAX_PASSWORD_LENGTH, userMessageFor } from '@handshack/core';
 import {
   Alert,
   Dropzone,
@@ -88,7 +88,7 @@ export function DecryptPage() {
 
   async function start() {
     if (!inspection) return;
-    const signal = op.begin();
+    const operation = op.begin();
     try {
       let savePath: string | undefined;
       let overwrite = false;
@@ -117,14 +117,14 @@ export function DecryptPage() {
           savePath,
           overwrite,
         },
-        op.progress,
-        signal,
+        operation.progress,
+        operation.signal,
       );
       setResult(res);
-      op.succeed();
+      operation.succeed();
       setPassword('');
     } catch (err) {
-      op.fail(err);
+      operation.fail(err);
     }
   }
 
@@ -324,7 +324,9 @@ export function DecryptPage() {
           <div className="card-title">
             <span className="step-num">2</span> Enter the password
           </div>
-          <div className="card-sub">The same password used when the package was created.</div>
+          <div className="card-sub">
+            The same password used when the package was created (up to {MAX_PASSWORD_LENGTH} characters).
+          </div>
           <PasswordField
             label="Password"
             value={password}

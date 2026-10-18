@@ -2,7 +2,6 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "types": ["node"],
-    "baseUrl": ".",
     "paths": {
       "@handshack/core": ["../../packages/core/src/index.ts"],
       "@handshack/core/node": ["../../packages/core/src/node.ts"]

@@ -14,6 +14,7 @@ import {
   DEFAULT_CHUNK_SIZE,
   estimateEncryptedSize,
   estimatePartCount,
+  MAX_PASSWORD_LENGTH,
   MIN_PASSWORD_LENGTH,
   userMessageFor,
   ZIP_DOWNLOAD_LIMIT,
@@ -85,7 +86,7 @@ export function EncryptPage() {
 
   async function start() {
     if (!validate() || !file) return;
-    const signal = op.begin();
+    const operation = op.begin();
 
     try {
       let outputDir: string | undefined;
@@ -111,15 +112,15 @@ export function EncryptPage() {
       }
       const res = await services.encrypt(
         { input: file, password, chunkSize, outputDir, overwrite },
-        op.progress,
-        signal,
+        operation.progress,
+        operation.signal,
       );
       setResult(res);
-      op.succeed();
+      operation.succeed();
       setPassword('');
       setConfirm('');
     } catch (err) {
-      op.fail(err);
+      operation.fail(err);
     }
   }
 
@@ -334,7 +335,7 @@ export function EncryptPage() {
               label="Password"
               value={password}
               onChange={setPassword}
-              hint={`At least ${MIN_PASSWORD_LENGTH} characters — longer is stronger.`}
+              hint={`At least ${MIN_PASSWORD_LENGTH} characters; up to ${MAX_PASSWORD_LENGTH}. Longer is stronger.`}
             />
             <PasswordStrength password={password} />
             <PasswordField

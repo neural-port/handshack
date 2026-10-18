@@ -17,7 +17,9 @@ import {
   FORMAT_VERSION,
   ALG_ID,
   MANIFEST_SUFFIX,
+  SALT_SIZE,
 } from './constants.js';
+import { base64UrlToBytes, bytesToBase64Url } from './encoding.js';
 import { HandshackError } from './errors.js';
 import type { PackageManifest, ScryptParams } from './types.js';
 
@@ -162,6 +164,15 @@ export function validateManifest(raw: unknown): PackageManifest {
 
   if (typeof m['salt'] !== 'string' || m['salt'].length < 8 || m['salt'].length > 64) {
     throw new HandshackError('invalid-manifest', 'bad salt');
+  }
+  try {
+    const saltBytes = base64UrlToBytes(m['salt']);
+    if (saltBytes.length !== SALT_SIZE || bytesToBase64Url(saltBytes) !== m['salt']) {
+      throw new HandshackError('invalid-manifest', 'salt must be canonical base64url encoding of 16 bytes');
+    }
+  } catch (err) {
+    if (err instanceof HandshackError && err.code === 'invalid-manifest') throw err;
+    throw new HandshackError('invalid-manifest', 'bad salt encoding');
   }
 
   const chunkSize = num(m['chunkSize']);

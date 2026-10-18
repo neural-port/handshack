@@ -3,6 +3,7 @@
  * This entry point must never be bundled into the browser build.
  */
 import { constants as fsConstants } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { HandshackError } from './errors.js';
@@ -37,9 +38,13 @@ export class FileByteSource implements ByteSource {
     }
     if (!this.handle) this.handle = await fs.open(this.filePath, 'r');
     const out = new Uint8Array(length);
-    const { bytesRead } = await this.handle.read(out, 0, length, offset);
-    if (bytesRead !== length) {
-      throw new HandshackError('truncated-package', `short read on ${this.filePath}`);
+    let bytesRead = 0;
+    while (bytesRead < length) {
+      const result = await this.handle.read(out, bytesRead, length - bytesRead, offset + bytesRead);
+      if (result.bytesRead === 0) {
+        throw new HandshackError('truncated-package', `short read on ${this.filePath}`);
+      }
+      bytesRead += result.bytesRead;
     }
     return out;
   }
@@ -53,7 +58,7 @@ export class FileByteSource implements ByteSource {
 }
 
 /**
- * Atomic-ish file sink: writes to `<path>.handshack-partial`, renames into
+ * Atomic-ish file sink: writes to a unique sibling partial file, renames into
  * place on close(), deletes the partial file on abort(). Refuses to overwrite
  * an existing destination unless `overwrite` is set.
  */
@@ -66,7 +71,7 @@ export class FileByteSink implements ByteSink {
     readonly finalPath: string,
     private readonly overwrite: boolean,
   ) {
-    this.partialPath = `${finalPath}.handshack-partial`;
+    this.partialPath = `${finalPath}.${randomUUID()}.handshack-partial`;
   }
 
   static async create(finalPath: string, overwrite: boolean): Promise<FileByteSink> {
@@ -79,7 +84,7 @@ export class FileByteSink implements ByteSink {
       );
     }
     try {
-      sink.handle = await fs.open(sink.partialPath, 'w');
+      sink.handle = await fs.open(sink.partialPath, 'wx');
       return sink;
     } catch (err) {
       throw mapFsError(err, finalPath);
@@ -88,7 +93,12 @@ export class FileByteSink implements ByteSink {
 
   async write(data: Uint8Array): Promise<void> {
     if (this.done) throw new HandshackError('io-error', 'write after close');
-    await this.handle!.write(data);
+    let offset = 0;
+    while (offset < data.length) {
+      const { bytesWritten } = await this.handle!.write(data, offset, data.length - offset, null);
+      if (bytesWritten === 0) throw new HandshackError('io-error', 'file write made no progress');
+      offset += bytesWritten;
+    }
   }
 
   async close(): Promise<void> {

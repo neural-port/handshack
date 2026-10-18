@@ -21,6 +21,7 @@ export function bytesToBase64Url(bytes: Uint8Array): string {
 export function base64UrlToBytes(text: string): Uint8Array {
   if (!/^[A-Za-z0-9_-]*$/.test(text)) throw new HandshackError('invalid-package', 'invalid base64url input');
   const len = text.length;
+  if (len % 4 === 1) throw new HandshackError('invalid-package', 'invalid base64url length');
   const byteLen = Math.floor((len * 3) / 4);
   const out = new Uint8Array(byteLen);
   let o = 0;
@@ -33,6 +34,9 @@ export function base64UrlToBytes(text: string): Uint8Array {
     if (o < byteLen) out[o++] = (n >> 16) & 0xff;
     if (o < byteLen) out[o++] = (n >> 8) & 0xff;
     if (o < byteLen) out[o++] = n & 0xff;
+  }
+  if (bytesToBase64Url(out) !== text) {
+    throw new HandshackError('invalid-package', 'non-canonical base64url input');
   }
   return out;
 }

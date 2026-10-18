@@ -1,5 +1,6 @@
 import { bytesToHex } from '../encoding.js';
 import { HandshackError } from '../errors.js';
+import { MAX_PART_COUNT } from '../constants.js';
 import type { ByteSink, IncrementalHash, ManifestPart } from '../types.js';
 
 export interface PartPlan {
@@ -105,6 +106,13 @@ export class PartRouter {
 /** Compute the deterministic part plan for a given package byte length. */
 export function planParts(baseName: string, totalSize: number, chunkSize: number): PartPlan[] {
   const count = Math.max(1, Math.ceil(totalSize / chunkSize));
+  if (count > MAX_PART_COUNT) {
+    throw new HandshackError(
+      'too-many-parts',
+      `package requires ${count} parts (limit ${MAX_PART_COUNT})`,
+      `This package would require more than ${MAX_PART_COUNT} parts. Choose a larger part size.`,
+    );
+  }
   const plans: PartPlan[] = [];
   for (let i = 0; i < count; i++) {
     const size = Math.min(chunkSize, totalSize - i * chunkSize);

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   decryptPackage,
   HandshackError,
@@ -228,6 +228,43 @@ describe('package assembly validation', () => {
 });
 
 describe('cryptographic hygiene', () => {
+  it('wipes encoded password bytes when key derivation fails during encryption', async () => {
+    const testProvider = new NodeCryptoProvider();
+    let captured: Uint8Array | undefined;
+    vi.spyOn(testProvider, 'deriveKey').mockImplementation(async (passwordBytes) => {
+      captured = passwordBytes;
+      throw new Error('simulated KDF failure');
+    });
+    await expect(
+      encryptInMemory(deterministicBytes(100), 'kdf-failure.bin', PASSWORD, CHUNK, testProvider),
+    ).rejects.toThrow('simulated KDF failure');
+    expect(captured).toBeDefined();
+    expect(captured!.every((byte) => byte === 0)).toBe(true);
+  });
+
+  it('wipes encoded password bytes and aborts output when key derivation fails during decryption', async () => {
+    const testProvider = new NodeCryptoProvider();
+    const pkg = await encryptInMemory(deterministicBytes(100), 'decrypt-kdf.bin', PASSWORD, CHUNK, testProvider);
+    let captured: Uint8Array | undefined;
+    vi.spyOn(testProvider, 'deriveKey').mockImplementation(async (passwordBytes) => {
+      captured = passwordBytes;
+      throw new Error('simulated KDF failure');
+    });
+    const sink = new MemoryByteSink();
+    await expect(
+      decryptPackage({
+        manifest: pkg.manifest,
+        parts: namedSources(pkg.partBytes),
+        password: PASSWORD,
+        provider: testProvider,
+        openOutput: () => Promise.resolve(sink),
+      }),
+    ).rejects.toThrow('simulated KDF failure');
+    expect(captured).toBeDefined();
+    expect(captured!.every((byte) => byte === 0)).toBe(true);
+    expect(sink.aborted).toBe(true);
+  });
+
   it('produces different salts/keys for identical input + password', async () => {
     const data = deterministicBytes(4096, 3);
     const a = await encryptInMemory(data, 'same.bin', PASSWORD, CHUNK, provider);

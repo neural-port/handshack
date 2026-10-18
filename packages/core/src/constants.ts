@@ -32,6 +32,7 @@ export const PACKAGE_ID_PREFIX = 'hs_';
 /** scrypt parameters emitted by this implementation for format v1. */
 export const KDF_ID = 'scrypt';
 export const KDF_DEFAULTS = { n: 32768, r: 8, p: 1, dkLen: AES_KEY_SIZE } as const;
+export const MAX_PASSWORD_LENGTH = 1024;
 /** Hard acceptance bounds for KDF parameters coming from untrusted packages. */
 export const KDF_MIN_N = 1 << 14;
 export const KDF_MAX_N = 1 << 20;
@@ -60,6 +61,12 @@ export const MAX_FILE_NAME = 128;
 export const MAX_PART_NAME = 160;
 /** Above this package size the web UI does not offer the ZIP convenience download. */
 export const ZIP_DOWNLOAD_LIMIT = 512 * 1024 * 1024;
+/** ZIP resource limits; these are checked before decompression in the ZIP worker. */
+export const ZIP_MAX_ENTRY_SIZE = 256 * 1024 * 1024;
+export const ZIP_MAX_TOTAL_SIZE = ZIP_DOWNLOAD_LIMIT;
+export const ZIP_MAX_ENTRIES = 4096;
+export const ZIP_MAX_ARCHIVE_SIZE =
+  ZIP_MAX_TOTAL_SIZE + MAX_MANIFEST_SIZE + ZIP_MAX_ENTRIES * 128;
 
 /** Fixed nonce prefix for record nonces: nonce_i = "HSP1" || u64be(i). */
 export const RECORD_NONCE_PREFIX = PACKAGE_MAGIC;

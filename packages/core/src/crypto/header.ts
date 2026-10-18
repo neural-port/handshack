@@ -5,8 +5,9 @@ import {
   MAX_FILE_SIZE,
   MAX_HEADER_SIZE,
   RECORD_SIZE,
+  SALT_SIZE,
 } from '../constants.js';
-import { base64UrlToBytes, bytesToUtf8, utf8ToBytes } from '../encoding.js';
+import { base64UrlToBytes, bytesToBase64Url, bytesToUtf8, utf8ToBytes } from '../encoding.js';
 import { HandshackError } from '../errors.js';
 import type { PackageHeader, ScryptParams } from '../types.js';
 import { validateKdfParams } from '../validation.js';
@@ -62,7 +63,7 @@ export function validateHeader(obj: unknown): PackageHeader {
     throw new HandshackError('invalid-package', 'bad salt');
   }
   const saltBytes = base64UrlToBytes(salt);
-  if (saltBytes.length < 8 || saltBytes.length > 32) {
+  if (saltBytes.length !== SALT_SIZE || bytesToBase64Url(saltBytes) !== salt) {
     throw new HandshackError('invalid-package', 'salt length out of bounds');
   }
 

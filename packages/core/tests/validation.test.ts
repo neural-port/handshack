@@ -5,6 +5,7 @@ import {
   isPartFileName,
   makePartName,
   partIndexFromName,
+  planParts,
   sanitizeFileName,
   safeFileName,
   validateChunkSize,
@@ -81,6 +82,10 @@ describe('part names', () => {
     expect(isManifestFileName('photo.jpg.hsmanifest.json')).toBe(true);
     expect(isManifestFileName('x.json')).toBe(false);
     expect(isManifestFileName('x.hsp')).toBe(false);
+  });
+
+  it('rejects a package plan exceeding the manifest part limit', () => {
+    expect(() => planParts('large.bin', 4097, 1)).toThrowError(/too-many-parts/);
   });
 });
 
