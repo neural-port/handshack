@@ -27,5 +27,3 @@ nsis:
   deleteAppDataOnUninstall: false
 portable:
   artifactName: HandShack-Portable-${version}.${ext}
-electronDownload:
-  cache: ~/.cache/electron
