@@ -188,10 +188,11 @@ export async function decryptPackage(req: DecryptRequest): Promise<DecryptResult
   const sink = await req.openOutput(fileName, header.origSize);
   throwIfAborted(signal);
 
+  const passwordBytes = utf8ToBytes(req.password);
+  let key: Uint8Array | null = null;
   try {
     report({ phase: 'deriving-key', done: 0, total: 1 });
-    const passwordBytes = utf8ToBytes(req.password);
-    const key = await provider.deriveKey(passwordBytes, base64UrlToBytes(header.salt), {
+    key = await provider.deriveKey(passwordBytes, base64UrlToBytes(header.salt), {
       n: header.kdfN,
       r: header.kdfR,
       p: header.kdfP,
@@ -216,7 +217,6 @@ export async function decryptPackage(req: DecryptRequest): Promise<DecryptResult
       done += ctLen;
       report({ phase: 'decrypting', done, total: header.payloadSize });
     }
-    key.fill(0);
 
     if (reader.remaining !== 0) {
       throw new HandshackError('invalid-package', 'trailing bytes after final record');
@@ -238,5 +238,7 @@ export async function decryptPackage(req: DecryptRequest): Promise<DecryptResult
   } catch (err) {
     await sink.abort().catch(() => undefined);
     throw err;
+  } finally {
+    if (key) key.fill(0);
   }
 }

@@ -3,7 +3,7 @@
  * All cryptography runs in a dedicated Web Worker (crypto.worker.ts);
  * file content never leaves the page.
  */
-import { unzipSync, zipSync, type Zippable } from 'fflate';
+import { unzip, zip, type UnzipFileFilter, type Zippable } from 'fflate';
 import {
   HandshackError,
   isManifestFileName,
@@ -87,16 +87,38 @@ function runWorkerJob(
 
 /* ---------- ZIP import/export (fflate, STORE only — contents are already encrypted) ---------- */
 
-function expandZipFile(f: File, bytes: Uint8Array): File[] {
+/** Max decompressed size per ZIP entry (256 MiB) — prevents zip bombs. */
+const ZIP_MAX_ENTRY_SIZE = 256 * 1024 * 1024;
+/** Max total decompressed size across all entries (1 GiB) — prevents exhaustion. */
+const ZIP_MAX_TOTAL_SIZE = 1024 * 1024 * 1024;
+/** Max number of entries — prevents exhaustion via millions of tiny files. */
+const ZIP_MAX_ENTRIES = 4096;
+
+function unzipAsync(bytes: Uint8Array, filter: UnzipFileFilter): Promise<Record<string, Uint8Array>> {
+  return new Promise((resolve, reject) => {
+    unzip(bytes, { filter }, (err, data) => (err ? reject(err) : resolve(data)));
+  });
+}
+
+async function expandZipFile(f: File, bytes: Uint8Array): Promise<File[]> {
   let entries: Record<string, Uint8Array>;
   try {
-    entries = unzipSync(bytes, { filter: (entry) => entry.name.length < 512 });
+    entries = await unzipAsync(bytes, (entry) => entry.name.length < 512 && entry.originalSize <= ZIP_MAX_ENTRY_SIZE);
   } catch {
     throw new HandshackError('invalid-input', `cannot read ${f.name} as a ZIP archive`, `The file "${f.name}" does not appear to be a valid ZIP archive.`);
   }
+  const entryNames = Object.keys(entries);
+  if (entryNames.length > ZIP_MAX_ENTRIES) {
+    throw new HandshackError('invalid-input', `ZIP has too many entries (${entryNames.length})`, `The archive "${f.name}" has too many files inside.`);
+  }
+  let total = 0;
   const out: File[] = [];
   const seen = new Set<string>();
   for (const [path, data] of Object.entries(entries)) {
+    total += data.length;
+    if (total > ZIP_MAX_TOTAL_SIZE) {
+      throw new HandshackError('invalid-input', `ZIP decompresses to more than ${ZIP_MAX_TOTAL_SIZE} bytes`, `The archive "${f.name}" is too large to expand.`);
+    }
     // Normalize + validate: no traversal, no absolute paths, basename only.
     const base = path.split('/').pop() ?? '';
     if (!base || base.startsWith('.') || /[/\\]/.test(base) || base.includes('..')) continue;
@@ -114,7 +136,7 @@ async function expandInputs(files: SelectedFileRef[]): Promise<SelectedFileRef[]
     const f = ref.handle as File;
     if (/\.zip$/i.test(f.name)) {
       const bytes = new Uint8Array(await f.arrayBuffer());
-      for (const inner of expandZipFile(f, bytes)) out.push(refFromFile(inner));
+      for (const inner of await expandZipFile(f, bytes)) out.push(refFromFile(inner));
     } else {
       out.push(ref);
     }
@@ -172,7 +194,7 @@ function anchorDownload(name: string, blob: Blob): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  setTimeout(() => URL.revokeObjectURL(url), 300_000); // 5 min — large downloads need time
 }
 
 async function saveBlob(name: string, blob: Blob): Promise<void> {
@@ -214,9 +236,11 @@ async function downloadZip(
   for (const p of parts) {
     files[p.name] = new Uint8Array(await p.blob.arrayBuffer());
   }
-  const zip = zipSync(files, { level: 0 }); // STORE — contents are already encrypted
+  const zipped = await new Promise<Uint8Array>((resolve, reject) => {
+    zip(files, { level: 0 }, (err, data) => (err ? reject(err) : resolve(data))); // STORE — contents are already encrypted
+  });
   const base = manifestName.replace(/\.hsmanifest\.json$/, '');
-  anchorDownload(`${base}-package.zip`, new Blob([zip], { type: 'application/zip' }));
+  anchorDownload(`${base}-package.zip`, new Blob([zipped.slice()], { type: 'application/zip' }));
 }
 
 /* ---------- release info (build-time env) ---------- */

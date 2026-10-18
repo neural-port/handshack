@@ -226,6 +226,10 @@ export function validateManifest(raw: unknown): PackageManifest {
     if (size < 1 || size > chunkSize) {
       throw new HandshackError('invalid-manifest', `bad size for part ${name}`);
     }
+    // Non-final parts must be exactly chunkSize; only the last may be smaller.
+    if (i < partsRaw.length - 1 && size !== chunkSize) {
+      throw new HandshackError('invalid-manifest', `part ${name} is not the last part but has size ${size} (expected ${chunkSize})`);
+    }
     const sha = rec['sha256'];
     if (typeof sha !== 'string' || !/^[0-9a-f]{64}$/.test(sha)) {
       throw new HandshackError('invalid-manifest', `bad sha256 for part ${name}`);

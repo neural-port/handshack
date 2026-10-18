@@ -33,11 +33,13 @@ export function phaseLabel(phase: string): string {
 export function useOperation() {
   const [state, setState] = useState<OperationState>({ status: 'idle', progress: null, error: null });
   const abortRef = useRef<AbortController | null>(null);
+  const genRef = useRef(0);
 
   const begin = useCallback((): AbortSignal => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
+    genRef.current++;
     setState({ status: 'running', progress: { phase: 'preparing', done: 0, total: 0 }, error: null });
     return ctrl.signal;
   }, []);
@@ -53,7 +55,11 @@ export function useOperation() {
 
   const fail = useCallback((err: unknown) => {
     const e = toHandshackError(err);
-    setState({ status: e.code === 'cancelled' ? 'cancelled' : 'failed', progress: null, error: e });
+    setState((s) =>
+      s.status === 'running'
+        ? { status: e.code === 'cancelled' ? 'cancelled' : 'failed', progress: null, error: e }
+        : s,
+    );
     abortRef.current = null;
   }, []);
 
@@ -64,6 +70,7 @@ export function useOperation() {
   const reset = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
+    genRef.current++;
     setState({ status: 'idle', progress: null, error: null });
   }, []);
 

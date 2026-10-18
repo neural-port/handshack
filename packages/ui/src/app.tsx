@@ -93,18 +93,22 @@ function AppShell({ route }: { route: RouteId }) {
         {nav(APP_NAV, () => setNavOpen(false))}
         <div className="nav-section">Learn</div>
         {nav(INFO_NAV, () => setNavOpen(false))}
-        {isWeb && (
+        {isWeb && platform.release?.repoUrl && (
           <>
             <div className="nav-section">Project</div>
-            <a className="nav-item" href="#/" onClick={() => setNavOpen(false)}>
-              <Download size={17} aria-hidden /> Website & Downloads
-            </a>
-            <a className="nav-item" href="#/" onClick={() => setNavOpen(false)}>
+            {platform.release.installerUrl && (
+              <a className="nav-item" href={platform.release.installerUrl} target="_blank" rel="noopener noreferrer">
+                <Download size={17} aria-hidden /> Download Desktop App
+              </a>
+            )}
+            <a className="nav-item" href={platform.release.repoUrl} target="_blank" rel="noopener noreferrer">
               <Github size={17} aria-hidden /> Source Code
             </a>
-            <a className="nav-item" href="#/" onClick={() => setNavOpen(false)}>
-              <ScrollText size={17} aria-hidden /> Release Notes
-            </a>
+            {platform.release.notesUrl && (
+              <a className="nav-item" href={platform.release.notesUrl} target="_blank" rel="noopener noreferrer">
+                <ScrollText size={17} aria-hidden /> Release Notes
+              </a>
+            )}
           </>
         )}
         <div className="sidebar-foot">

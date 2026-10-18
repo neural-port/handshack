@@ -16,6 +16,7 @@ import {
   estimatePartCount,
   MIN_PASSWORD_LENGTH,
   userMessageFor,
+  ZIP_DOWNLOAD_LIMIT,
 } from '@handshack/core';
 import {
   Alert,
@@ -183,7 +184,7 @@ export function EncryptPage() {
                 private channel.
               </p>
               <div className="btn-row">
-                {services.downloadZip && result.encryptedSize <= 512 * 1024 * 1024 && (
+                {services.downloadZip && result.encryptedSize <= ZIP_DOWNLOAD_LIMIT && (
                   <button
                     type="button"
                     className="btn btn-primary"
@@ -211,7 +212,7 @@ export function EncryptPage() {
                   <Copy size={15} /> Copy package name
                 </button>
               </div>
-              {result.encryptedSize > 512 * 1024 * 1024 && (
+              {result.encryptedSize > ZIP_DOWNLOAD_LIMIT && (
                 <Alert kind="info">
                   This package is large — download the files individually rather than as a ZIP.
                 </Alert>

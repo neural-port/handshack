@@ -1,4 +1,5 @@
 /** Byte/encoding helpers shared by both platforms. */
+import { HandshackError } from './errors.js';
 
 const B64_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
 const B64_REVERSE = new Map([...B64_ALPHABET].map((c, i) => [c, i]));
@@ -18,13 +19,13 @@ export function bytesToBase64Url(bytes: Uint8Array): string {
 }
 
 export function base64UrlToBytes(text: string): Uint8Array {
-  if (!/^[A-Za-z0-9_-]*$/.test(text)) throw new Error('invalid base64url input');
+  if (!/^[A-Za-z0-9_-]*$/.test(text)) throw new HandshackError('invalid-package', 'invalid base64url input');
   const len = text.length;
   const byteLen = Math.floor((len * 3) / 4);
   const out = new Uint8Array(byteLen);
   let o = 0;
   for (let i = 0; i < len; i += 4) {
-    const c0 = B64_REVERSE.get(text[i]!)!;
+    const c0 = B64_REVERSE.get(text[i]!) ?? 0;
     const c1 = B64_REVERSE.get(text[i + 1] ?? 'A') ?? 0;
     const c2 = B64_REVERSE.get(text[i + 2] ?? 'A') ?? 0;
     const c3 = B64_REVERSE.get(text[i + 3] ?? 'A') ?? 0;

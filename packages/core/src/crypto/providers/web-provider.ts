@@ -92,10 +92,12 @@ export class WebCryptoProvider implements CryptoProvider {
   }
 
   createSha256(): IncrementalHash {
-    // hash-wasm's WASM SHA-256 streams incrementally and matches OpenSSL output.
+    // hash-wasm streams incrementally and matches OpenSSL output. Updates that
+    // arrive before the WASM module is ready are queued as copies: callers wipe
+    // their plaintext buffers right after hashing.
     const hasherPromise = hashWasm().then((m) => m.createSHA256());
     const queue: Uint8Array[] = [];
-    let hasher: Awaited<ReturnType<typeof HashWasm.createSHA256>> | null = null;
+    let hasher: Awaited<typeof hasherPromise> | null = null;
     void hasherPromise.then((h) => {
       hasher = h;
       for (const d of queue) h.update(d);
@@ -104,7 +106,7 @@ export class WebCryptoProvider implements CryptoProvider {
     return {
       update(d: Uint8Array) {
         if (hasher) hasher.update(d);
-        else queue.push(d);
+        else queue.push(d.slice());
       },
       async digest() {
         const h = hasher ?? (await hasherPromise);

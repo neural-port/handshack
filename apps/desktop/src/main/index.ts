@@ -43,6 +43,12 @@ import { MAX_FILE_SIZE, MAX_MANIFEST_SIZE, MAX_PART_COUNT, MIN_PASSWORD_LENGTH }
 const provider = new NodeCryptoProvider();
 let win: BrowserWindow | null = null;
 let currentOp: AbortController | null = null;
+/**
+ * Paths the user picked in a native dialog or the app itself produced this
+ * session. The renderer may only touch the file system through these, so a
+ * compromised renderer cannot probe or write arbitrary locations.
+ */
+const approvedPaths = new Set<string>();
 
 /* ---------- IPC input validation ---------- */
 
@@ -59,11 +65,19 @@ function assertAbsPath(v: unknown, field: string): string {
   return path.normalize(s);
 }
 
-function assertPathArray(v: unknown, field: string, maxItems: number): string[] {
+function assertApproved(v: unknown, field: string): string {
+  const abs = assertAbsPath(v, field);
+  if (!approvedPaths.has(abs)) {
+    throw new HandshackError('invalid-input', `${field}: path was not selected in this session`);
+  }
+  return abs;
+}
+
+function assertApprovedPathArray(v: unknown, field: string, maxItems: number): string[] {
   if (!Array.isArray(v) || v.length === 0 || v.length > maxItems) {
     throw new HandshackError('invalid-input', `${field}: bad array`);
   }
-  return v.map((p) => assertAbsPath(p, field));
+  return v.map((p) => assertApproved(p, field));
 }
 
 function toIpcError(err: unknown): Error {
@@ -78,7 +92,9 @@ async function pickedFiles(paths: string[]): Promise<PickedFile[]> {
   const out: PickedFile[] = [];
   for (const p of paths) {
     const stat = await fs.stat(p);
-    if (stat.isFile()) out.push({ path: p, name: path.basename(p), size: stat.size });
+    if (!stat.isFile()) continue;
+    approvedPaths.add(p);
+    out.push({ path: p, name: path.basename(p), size: stat.size });
   }
   return out;
 }
@@ -93,7 +109,7 @@ async function pickFiles(opts: Electron.OpenDialogOptions): Promise<PickedFile[]
 /* ---------- package inspection ---------- */
 
 async function inspectPackage(rawPaths: unknown): Promise<InspectResult> {
-  const paths = assertPathArray(rawPaths, 'paths', MAX_PART_COUNT + 1);
+  const paths = assertApprovedPathArray(rawPaths, 'paths', MAX_PART_COUNT + 1);
   const manifestPath = paths.find((p) => isManifestFileName(path.basename(p)));
   if (!manifestPath) {
     throw new HandshackError(
@@ -127,6 +143,7 @@ async function inspectPackage(rawPaths: unknown): Promise<InspectResult> {
     const sibling = path.join(dir, part.name);
     if (await fileExists(sibling)) matched.push(sibling);
   }
+  for (const m of matched) approvedPaths.add(m);
   const matchedNames = new Set(matched.map((p) => path.basename(p)));
   const missing = manifest.parts.filter((p) => !matchedNames.has(p.name)).map((p) => p.name);
   return { manifestPath, manifest, matchedPartPaths: matched, missing, unexpected };
@@ -135,7 +152,7 @@ async function inspectPackage(rawPaths: unknown): Promise<InspectResult> {
 /* ---------- collision pre-scan ---------- */
 
 async function findCollisions(dirRaw: unknown, baseRaw: unknown): Promise<string[]> {
-  const dir = assertAbsPath(dirRaw, 'dir');
+  const dir = assertApproved(dirRaw, 'dir');
   const base = sanitizeFileName(assertString(baseRaw, 'baseName', 256));
   const names = await fs.readdir(dir).catch(() => [] as string[]);
   const manifestName = `${base}.hsmanifest.json`;
@@ -149,8 +166,8 @@ async function findCollisions(dirRaw: unknown, baseRaw: unknown): Promise<string
 
 async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promise<EncryptOutcome> {
   const params = raw as EncryptParams;
-  const inputPath = assertAbsPath(params?.inputPath, 'inputPath');
-  const outputDir = assertAbsPath(params?.outputDir, 'outputDir');
+  const inputPath = assertApproved(params?.inputPath, 'inputPath');
+  const outputDir = assertApproved(params?.outputDir, 'outputDir');
   const password = assertString(params?.password, 'password', 1024);
   if (password.length < MIN_PASSWORD_LENGTH) {
     throw new HandshackError('invalid-password', 'password below minimum length', `Enter a password of at least ${MIN_PASSWORD_LENGTH} characters.`);
@@ -166,9 +183,6 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
   if (inputStat.size > MAX_FILE_SIZE) throw new HandshackError('file-too-large');
   const dirStat = await fs.stat(outputDir).catch(() => null);
   if (!dirStat?.isDirectory()) throw new HandshackError('io-error', 'output dir missing', 'The selected output folder no longer exists.');
-  if (path.resolve(inputPath).startsWith(path.resolve(outputDir) + path.sep) === false && path.dirname(inputPath) === outputDir) {
-    // writing into the source folder is allowed — parts get distinct names
-  }
 
   // Pre-scan for collisions so we fail BEFORE doing the cryptographic work.
   const base = sanitizeFileName(path.basename(inputPath));
@@ -193,15 +207,16 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
       signal: ctrl.signal,
       onProgress: report,
       generator: 'handshack-desktop',
-      openPartSink: (_i, name, size) => {
+      openPartSink: (_i, name) => {
         const p = path.join(outputDir, name);
         partPaths.push(p);
-        void size;
+        approvedPaths.add(p);
         return FileByteSink.create(p, overwrite);
       },
     });
     const manifestPath = path.join(outputDir, result.manifestFileName);
     await fs.writeFile(manifestPath, result.manifestText, 'utf8');
+    approvedPaths.add(manifestPath);
     return {
       manifestPath,
       partPaths,
@@ -223,11 +238,11 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
 
 async function handleDecrypt(raw: unknown, sender: Electron.WebContents): Promise<DecryptOutcome> {
   const params = raw as DecryptParams;
-  const manifestPath = assertAbsPath(params?.manifestPath, 'manifestPath');
-  const savePath = assertAbsPath(params?.savePath, 'savePath');
+  const manifestPath = assertApproved(params?.manifestPath, 'manifestPath');
+  const savePath = assertApproved(params?.savePath, 'savePath');
   const password = assertString(params?.password, 'password', 1024);
   const overwrite = params?.overwrite === true;
-  const partPaths = params?.partPaths ? assertPathArray(params.partPaths, 'partPaths', MAX_PART_COUNT) : undefined;
+  const partPaths = params?.partPaths ? assertApprovedPathArray(params.partPaths, 'partPaths', MAX_PART_COUNT) : undefined;
 
   const manifest = parseManifestBytes(await readFileBytes(manifestPath, MAX_MANIFEST_SIZE));
 
@@ -280,7 +295,7 @@ async function handleDecrypt(raw: unknown, sender: Electron.WebContents): Promis
     };
   } finally {
     for (const s of sources) {
-      if (s.source instanceof FileByteSource) await s.source.close();
+      await s.source.close?.();
     }
     currentOp = null;
   }
@@ -356,7 +371,10 @@ function registerIpc(): void {
       properties: ['openDirectory', 'createDirectory'],
       title: 'Choose output folder',
     });
-    return r.canceled ? null : (r.filePaths[0] ?? null);
+    const dir = r.filePaths[0];
+    if (r.canceled || !dir) return null;
+    approvedPaths.add(dir);
+    return dir;
   });
   ipcMain.handle('dialog:save-path', async (_e, rawName) => {
     if (!win) return null;
@@ -365,14 +383,15 @@ function registerIpc(): void {
       defaultPath: defaultName,
       title: 'Save restored file',
     });
-    return r.canceled ? null : (r.filePath ?? null);
+    if (r.canceled || !r.filePath) return null;
+    approvedPaths.add(r.filePath);
+    return r.filePath;
   });
   ipcMain.handle('package:inspect', (e, raw) => inspectPackage(raw).catch((err) => { throw toIpcError(err); }));
   ipcMain.handle('fs:find-collisions', (e, dir, base) => findCollisions(dir, base).catch((err) => { throw toIpcError(err); }));
-  ipcMain.handle('fs:exists', (_e, p) => fileExists(assertAbsPath(p, 'path')));
-  ipcMain.handle('fs:reveal', async (_e, p) => {
-    const abs = assertAbsPath(p, 'path');
-    shell.showItemInFolder(abs);
+  ipcMain.handle('fs:exists', (_e, p) => fileExists(assertApproved(p, 'path')));
+  ipcMain.handle('fs:reveal', (_e, p) => {
+    shell.showItemInFolder(assertApproved(p, 'path'));
   });
   ipcMain.handle('op:encrypt', wrap(handleEncrypt));
   ipcMain.handle('op:decrypt', wrap(handleDecrypt));
@@ -382,6 +401,13 @@ function registerIpc(): void {
 }
 
 /* ---------- lifecycle ---------- */
+
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on('second-instance', () => {
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.focus();
+});
 
 app.whenReady().then(() => {
   // CSP is enforced by the <meta> tag in the packaged renderer's index.html.

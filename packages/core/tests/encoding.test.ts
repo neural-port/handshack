@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   base64UrlToBytes,
+  HandshackError,
   bytesEqual,
   bytesToBase64Url,
   bytesToHex,
@@ -57,5 +58,10 @@ describe('encoding', () => {
   it('utf8 handles unicode', () => {
     const s = 'héllo—世界—🔐';
     expect(utf8ToBytes(s).length).toBeGreaterThan(s.length);
+  });
+
+  it('base64url rejects non-alphabet input with a HandShack error', () => {
+    expect(() => base64UrlToBytes('ab+/')).toThrowError(HandshackError);
+    expect(() => base64UrlToBytes('ab+/')).toThrowError(/invalid base64url/);
   });
 });

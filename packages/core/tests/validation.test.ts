@@ -172,4 +172,12 @@ describe('validateManifest', () => {
     bad['partCount'] = 999999;
     expect(() => validateManifest(bad)).toThrow(HandshackError);
   });
+
+  it('rejects a non-final part that is not exactly chunkSize', async () => {
+    const pkg = await encryptInMemory(deterministicBytes(2.5 * DEFAULT_CHUNK_SIZE), 'b.bin', PASSWORD, DEFAULT_CHUNK_SIZE, provider);
+    const bad = cloneManifest(pkg.manifest);
+    bad.parts[0]!.size -= 1;
+    bad.parts[1]!.size += 1;
+    expect(() => validateManifest(bad)).toThrowError(/not the last part/);
+  });
 });

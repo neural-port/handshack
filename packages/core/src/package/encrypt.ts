@@ -135,10 +135,11 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
     () => provider.createSha256(),
   );
 
+  const passwordBytes = utf8ToBytes(req.password);
+  let key: Uint8Array | null = null;
   try {
     report({ phase: 'deriving-key', done: 0, total: 1 });
-    const passwordBytes = utf8ToBytes(req.password);
-    const key = await provider.deriveKey(passwordBytes, salt, kdfParams);
+    key = await provider.deriveKey(passwordBytes, salt, kdfParams);
     passwordBytes.fill(0);
     report({ phase: 'deriving-key', done: 1, total: 1 });
     throwIfAborted(signal);
@@ -159,7 +160,6 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
       written += ct.length;
       report({ phase: 'encrypting', done: written, total: encryptedSize });
     }
-    key.fill(0);
 
     report({ phase: 'writing', done: 0, total: 0 });
     const parts = await router.finish();
@@ -192,6 +192,8 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
   } catch (err) {
     await router.abort().catch(() => undefined);
     throw err;
+  } finally {
+    if (key) key.fill(0);
   }
 }
 

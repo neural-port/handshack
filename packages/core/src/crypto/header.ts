@@ -4,7 +4,6 @@ import {
   MAX_FILE_NAME,
   MAX_FILE_SIZE,
   MAX_HEADER_SIZE,
-  MAX_PART_COUNT,
   RECORD_SIZE,
 } from '../constants.js';
 import { base64UrlToBytes, bytesToUtf8, utf8ToBytes } from '../encoding.js';
@@ -72,7 +71,7 @@ export function validateHeader(obj: unknown): PackageHeader {
     throw new HandshackError('invalid-package', `recordSize=${recordSize}`);
   }
   const recordCount = reqInt(h, 'recordCount');
-  if (recordCount < 1 || recordCount > MAX_PART_COUNT * 64) {
+  if (recordCount < 1 || recordCount > Math.ceil(MAX_FILE_SIZE / RECORD_SIZE)) {
     throw new HandshackError('invalid-package', `recordCount=${recordCount}`);
   }
   const origSize = reqInt(h, 'origSize');

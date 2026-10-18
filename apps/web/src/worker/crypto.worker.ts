@@ -29,7 +29,6 @@ function progress(jobId: number) {
 }
 
 async function handleEncrypt(req: Extract<WorkerRequest, { kind: 'encrypt' }>) {
-  const controller = new AbortController();
   const partBlobs: { name: string; blob: Blob }[] = [];
 
   const result = await encryptFile({
@@ -38,7 +37,6 @@ async function handleEncrypt(req: Extract<WorkerRequest, { kind: 'encrypt' }>) {
     password: req.password,
     chunkSize: req.chunkSize,
     provider,
-    signal: controller.signal,
     onProgress: progress(req.jobId),
     generator: 'handshack-web',
     openPartSink: (_i, name) => {
@@ -69,8 +67,6 @@ async function handleEncrypt(req: Extract<WorkerRequest, { kind: 'encrypt' }>) {
 }
 
 async function handleDecrypt(req: Extract<WorkerRequest, { kind: 'decrypt' }>) {
-  const controller = new AbortController();
-
   const manifestBytes = new Uint8Array(await req.manifestFile.arrayBuffer());
   const manifest = parseManifestBytes(manifestBytes);
   const parts = req.partFiles.map((f) => ({ name: f.name, source: new BlobByteSource(f, f.name) }));
@@ -81,7 +77,6 @@ async function handleDecrypt(req: Extract<WorkerRequest, { kind: 'decrypt' }>) {
     parts,
     password: req.password,
     provider,
-    signal: controller.signal,
     onProgress: progress(req.jobId),
     openOutput: () => Promise.resolve(sink),
   });
