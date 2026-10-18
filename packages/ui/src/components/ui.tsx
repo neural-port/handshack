@@ -329,13 +329,13 @@ export function Stage({
     <section className={`stage ${status}`} data-status={status}>
       <header className="stage-head">
         <span className="stage-num" aria-hidden>
-          {status === 'done' ? <CheckCircle2 size={17} /> : num}
+          {status === 'done' ? <CheckCircle2 size={16} /> : `§${num}`}
         </span>
         <div className="grow" style={{ minWidth: 0 }}>
           <div className="stage-title">{title}</div>
           {sub && <div className="stage-sub">{sub}</div>}
         </div>
-        {meta && <span className="stage-meta">{meta}</span>}
+        {meta && <span className="stage-meta stamp">{meta}</span>}
       </header>
       <div className="stage-body">{children}</div>
     </section>

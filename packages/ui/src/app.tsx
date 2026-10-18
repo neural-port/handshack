@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import {
   Download,
   Github,
   HelpCircle,
-  Home,
-  Info,
   Lock,
   Menu,
   PackageOpen,
   ScrollText,
   ShieldCheck,
+  Info,
 } from 'lucide-react';
 import { BrandWordmark } from './brand.js';
 import { PlatformProvider, usePlatform, type PlatformServices } from './platform.js';
@@ -25,7 +24,7 @@ import { AboutPage } from './pages/about.js';
 interface NavEntry {
   route: RouteId;
   label: string;
-  icon: typeof Home;
+  icon: ComponentType<{ size?: number | string }>;
 }
 
 const APP_NAV: NavEntry[] = [
@@ -63,7 +62,7 @@ function AppShell({ route }: { route: RouteId }) {
   const [navOpen, setNavOpen] = useState(false);
   const isWeb = platform.platform === 'web';
 
-  const tab = (r: RouteId, label: string, onNavigate?: () => void) => (
+  const tab = (r: RouteId, label: string, no: string, onNavigate?: () => void) => (
     <Link
       key={r}
       to={r}
@@ -71,6 +70,9 @@ function AppShell({ route }: { route: RouteId }) {
       onClick={onNavigate}
       aria-label={label}
     >
+      <span className="t-no" aria-hidden>
+        {no}/
+      </span>
       {label}
     </Link>
   );
@@ -96,11 +98,16 @@ function AppShell({ route }: { route: RouteId }) {
           style={{ textDecoration: 'none' }}
         >
           <BrandWordmark size={26} />
+          <span className="topnav-tagline">
+            File protection
+            <br />
+            system
+          </span>
         </a>
 
         <nav className="topnav-tabs" aria-label="Primary">
-          {tab('encrypt', 'Encrypt')}
-          {tab('decrypt', 'Decrypt')}
+          {tab('encrypt', 'Encrypt', '01')}
+          {tab('decrypt', 'Decrypt', '02')}
         </nav>
 
         <div className="topnav-side">

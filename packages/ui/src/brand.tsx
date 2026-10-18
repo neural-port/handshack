@@ -13,7 +13,7 @@ export function BrandMark({ size = 28 }: { size?: number }) {
       aria-label="HandShack logo"
       style={{ display: 'block' }}
     >
-      <rect x="1.5" y="1.5" width="45" height="45" rx="11" fill="url(#hs-tile)" stroke="var(--border-strong)" />
+      <rect x="1.5" y="1.5" width="45" height="45" rx="4" fill="url(#hs-tile)" stroke="var(--border-strong)" />
       <path
         d="M18.5 31.5l-2.7-2.7a5.6 5.6 0 0 1 0-7.9l5.2-5.2a5.6 5.6 0 0 1 7.9 0l2 2"
         stroke="var(--accent)"
@@ -40,8 +40,16 @@ export function BrandWordmark({ size = 28 }: { size?: number }) {
   return (
     <span className="brand-wordmark" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
       <BrandMark size={size} />
-      <span style={{ fontWeight: 650, fontSize: size * 0.62, letterSpacing: '-0.02em' }}>
-        Hand<span style={{ color: 'var(--accent)' }}>Shack</span>
+      <span
+        style={{
+          fontFamily: 'var(--font-display)',
+          fontWeight: 700,
+          fontSize: size * 0.6,
+          letterSpacing: '0.01em',
+          textTransform: 'uppercase',
+        }}
+      >
+        Hand<span style={{ color: 'var(--accent-text)' }}>Shack</span>
       </span>
     </span>
   );

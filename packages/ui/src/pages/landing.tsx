@@ -7,7 +7,6 @@ import {
   Globe,
   Lock,
   MonitorDown,
-  MoveRight,
   PackageOpen,
   ScrollText,
   ShieldCheck,
@@ -19,37 +18,33 @@ import { usePlatform } from '../platform.js';
 import { routePath } from '../router.js';
 import { Alert } from '../components/ui.js';
 
-/* Visual: file -> encrypted package -> parts. Pure CSS/markup, no image. */
-function PipelineVisual() {
+/* Spec sheet — the package format as a technical document, with barcode. */
+function SpecSheet() {
   return (
-    <div className="pv" aria-hidden>
-      <div className="pv-lane">
-        <div className="pv-node pv-file">
-          <FileUp size={16} />
-          <span className="pv-name">family-photos.zip</span>
-          <span className="pv-meta">original · 412 MB</span>
-        </div>
-        <div className="pv-arrow">
-          <MoveRight size={15} />
-          <span>AES-256-GCM</span>
-        </div>
-        <div className="pv-node pv-lock">
-          <Lock size={16} />
-          <span className="pv-name">encrypted stream</span>
-          <span className="pv-meta">+16 B auth tag / record</span>
-        </div>
-        <div className="pv-arrow">
-          <MoveRight size={15} />
-          <span>split</span>
-        </div>
-        <div className="pv-parts">
-          <div className="pv-node pv-part">.part001.hsp</div>
-          <div className="pv-node pv-part">.part002.hsp</div>
-          <div className="pv-node pv-part">.part003.hsp</div>
-          <div className="pv-node pv-part pv-manifest">.hsmanifest.json</div>
-        </div>
+    <div className="spec-sheet" aria-label="Package format specification">
+      <div className="spec-head">
+        <span className="spec-title">Package format · HS-1</span>
+        <span className="stamp blue">Local only</span>
       </div>
-      <div className="pv-caption">Everything above happens on your device.</div>
+      <div className="spec-rows">
+        {[
+          ['Cipher', 'AES-256-GCM'],
+          ['Key derivation', 'scrypt · N=32768 · r=8 · p=1'],
+          ['Integrity', 'SHA-256 · per part + full file'],
+          ['Parts', '.hsp · numbered · size-capped'],
+          ['Manifest', '.hsmanifest.json · signed metadata'],
+          ['Cloud storage', 'none — ever'],
+        ].map(([k, v]) => (
+          <div className="spec-row" key={k}>
+            <span className="k">{k}</span>
+            <span className="v">{v}</span>
+          </div>
+        ))}
+      </div>
+      <div className="spec-foot">
+        <span className="barcode" aria-hidden />
+        <span className="f-no">PKG-ID: HS-000000-A1</span>
+      </div>
     </div>
   );
 }
@@ -92,8 +87,9 @@ export function LandingPage() {
               <span className="accent-word">Protected before sharing.</span>
             </h1>
             <p className="lead">
-              Encrypt your files, split them into smaller parts, and restore them when needed. Try
-              HandShack directly in your browser — nothing is uploaded.
+              HandShack encrypts a file on your device, cuts the encrypted package into numbered
+              parts with a signed manifest, and rebuilds it byte-for-byte on the other side. No
+              server ever holds your data.
             </p>
             <div className="cta-row">
               <a href={routePath('encrypt')} className="btn btn-primary btn-lg">
@@ -104,7 +100,7 @@ export function LandingPage() {
               </a>
             </div>
           </div>
-          <PipelineVisual />
+          <SpecSheet />
         </div>
       </section>
 
