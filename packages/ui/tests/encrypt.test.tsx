@@ -124,11 +124,11 @@ describe('Reassemble & Decrypt page', () => {
 });
 
 describe('navigation', () => {
-  it('routes between app pages via the sidebar', async () => {
+  it('routes between app pages via the top navigation', async () => {
     window.location.hash = '#/app';
     renderApp();
     expect(await screen.findByText('Your files. Your control.')).toBeInTheDocument();
-    await userEvent.click(screen.getAllByRole('link', { name: 'Security & Privacy' })[0]!);
+    await userEvent.click(screen.getAllByRole('link', { name: 'Security' })[0]!);
     await waitFor(() => {
       expect(window.location.hash).toBe('#/app/security');
     });

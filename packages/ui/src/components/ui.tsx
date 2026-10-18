@@ -306,6 +306,42 @@ export function ProgressBlock({
   );
 }
 
+/* ---------- Pipeline stage ---------- */
+
+export type StageStatus = 'pending' | 'active' | 'done' | 'blocked';
+
+export function Stage({
+  num,
+  title,
+  sub,
+  status = 'pending',
+  meta,
+  children,
+}: {
+  num: string;
+  title: ReactNode;
+  sub?: ReactNode;
+  status?: StageStatus;
+  meta?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className={`stage ${status}`} data-status={status}>
+      <header className="stage-head">
+        <span className="stage-num" aria-hidden>
+          {status === 'done' ? <CheckCircle2 size={17} /> : num}
+        </span>
+        <div className="grow" style={{ minWidth: 0 }}>
+          <div className="stage-title">{title}</div>
+          {sub && <div className="stage-sub">{sub}</div>}
+        </div>
+        {meta && <span className="stage-meta">{meta}</span>}
+      </header>
+      <div className="stage-body">{children}</div>
+    </section>
+  );
+}
+
 /* ---------- Stat ---------- */
 
 export function Stat({ label, value, mono }: { label: string; value: ReactNode; mono?: boolean }) {

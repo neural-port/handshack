@@ -17,6 +17,7 @@ import {
   PartList,
   PasswordField,
   ProgressBlock,
+  Stage,
   Stat,
 } from '../components/ui.js';
 import { fileTypeLabel, formatBytes } from '../format.js';
@@ -46,6 +47,7 @@ export function DecryptPage() {
     () => new Set(inspection?.matchedParts.map((p) => p.name) ?? []),
     [inspection],
   );
+  const packageReady = !!inspection && missing.size === 0;
 
   async function inspect(files: SelectedFileRef[]) {
     if (files.length === 0) return;
@@ -236,17 +238,26 @@ export function DecryptPage() {
         </p>
       </header>
 
-      <div className="stack-lg">
-        <section className="card card-pad">
-          <div className="card-title">
-            <span className="step-num">1</span> Select package files
-          </div>
-          <div className="card-sub">
-            Pick the <span className="mono">.hsmanifest.json</span> file and all{' '}
-            <span className="mono">.hsp</span> parts
-            {services.capabilities.zipDownload ? ' — or a ZIP containing the whole package' : ''}.
-          </div>
-
+      <div className="stage-flow">
+        <Stage
+          num="01"
+          title="Select package files"
+          sub={
+            <>
+              Pick the <span className="mono">.hsmanifest.json</span> file and all{' '}
+              <span className="mono">.hsp</span> parts
+              {services.capabilities.zipDownload ? ' — or a ZIP containing the whole package' : ''}.
+            </>
+          }
+          status={packageReady ? 'done' : 'active'}
+          meta={
+            packageReady
+              ? 'Complete set'
+              : missing.size > 0
+                ? `${missing.size} missing`
+                : undefined
+          }
+        >
           <Dropzone
             lead="Choose package files"
             sub="Manifest + all parts · you can select them together"
@@ -318,15 +329,14 @@ export function DecryptPage() {
               </Alert>
             </div>
           )}
-        </section>
+        </Stage>
 
-        <section className="card card-pad">
-          <div className="card-title">
-            <span className="step-num">2</span> Enter the password
-          </div>
-          <div className="card-sub">
-            The same password used when the package was created (up to {MAX_PASSWORD_LENGTH} characters).
-          </div>
+        <Stage
+          num="02"
+          title="Enter the password"
+          sub={`The same password used when the package was created (up to ${MAX_PASSWORD_LENGTH} characters).`}
+          status={password ? 'done' : packageReady ? 'active' : 'pending'}
+        >
           <PasswordField
             label="Password"
             value={password}
@@ -334,21 +344,36 @@ export function DecryptPage() {
             autoComplete="current-password"
             placeholder="Package password"
           />
-        </section>
+        </Stage>
 
-        {op.state.status === 'failed' && op.state.error && (
-          <Alert kind="error">
-            <span>{op.state.error.userMessage}</span>
-          </Alert>
-        )}
-        {op.state.status === 'cancelled' && (
-          <Alert kind="warn">
-            <span>The operation was cancelled. No partial file was kept.</span>
-          </Alert>
-        )}
-
-        {running ? (
-          <section className="card card-pad">
+        <Stage
+          num="03"
+          title="Reassemble &amp; decrypt"
+          sub="The restored file is verified byte-for-byte against the manifest before it is delivered."
+          status={running ? 'active' : 'pending'}
+        >
+          {op.state.status === 'failed' && op.state.error && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="error">
+                <span>{op.state.error.userMessage}</span>
+              </Alert>
+            </div>
+          )}
+          {op.state.status === 'cancelled' && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="warn">
+                <span>The operation was cancelled. No partial file was kept.</span>
+              </Alert>
+            </div>
+          )}
+          {missing.size > 0 && inspection && !running && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="info">
+                <span>Decryption stays locked until every part of the package is present.</span>
+              </Alert>
+            </div>
+          )}
+          {running ? (
             <div className="stack">
               <ProgressBlock
                 phaseLabel={phaseLabel(op.state.progress?.phase ?? 'preparing')}
@@ -361,23 +386,17 @@ export function DecryptPage() {
                 </button>
               </div>
             </div>
-          </section>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-primary btn-lg"
-            onClick={start}
-            disabled={!inspection || missing.size > 0 || !password}
-          >
-            <Save size={17} /> Reassemble &amp; Decrypt
-          </button>
-        )}
-
-        {missing.size > 0 && inspection && (
-          <Alert kind="info">
-            <span>Decryption stays locked until every part of the package is present.</span>
-          </Alert>
-        )}
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary btn-lg"
+              onClick={start}
+              disabled={!inspection || missing.size > 0 || !password}
+            >
+              <Save size={17} /> Reassemble &amp; Decrypt
+            </button>
+          )}
+        </Stage>
       </div>
     </div>
   );

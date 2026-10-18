@@ -64,75 +64,116 @@ function AppShell({ route }: { route: RouteId }) {
   const [navOpen, setNavOpen] = useState(false);
   const isWeb = platform.platform === 'web';
 
-  const nav = (items: NavEntry[], onNavigate?: () => void) =>
-    items.map(({ route: r, label, icon: Icon }) => (
-      <Link
-        key={r}
-        to={r}
-        className={`nav-item${route === r ? ' active' : ''}`}
-        onClick={onNavigate}
-        aria-label={label}
-      >
-        <Icon size={17} aria-hidden />
-        {label}
-      </Link>
-    ));
+  const tab = (r: RouteId, label: string, onNavigate?: () => void) => (
+    <Link
+      key={r}
+      to={r}
+      className={`topnav-tab${route === r ? ' active' : ''}`}
+      onClick={onNavigate}
+      aria-label={label}
+    >
+      {label}
+    </Link>
+  );
+
+  const quietLink = (r: RouteId, label: string, onNavigate?: () => void) => (
+    <Link
+      key={r}
+      to={r}
+      className={`topnav-link${route === r ? ' active' : ''}`}
+      onClick={onNavigate}
+      aria-label={label}
+    >
+      {label}
+    </Link>
+  );
 
   return (
     <div className="shell">
-      <nav className={`sidebar${navOpen ? ' mobile-open' : ''}`} aria-label="Primary">
-        <div className="brand">
-          <a
-            href={isWeb ? routePath('landing') : routePath('home')}
-            style={{ textDecoration: 'none', color: 'inherit' }}
-          >
-            <BrandWordmark size={30} />
-          </a>
-        </div>
-        <div className="nav-section">Application</div>
-        {nav(APP_NAV, () => setNavOpen(false))}
-        <div className="nav-section">Learn</div>
-        {nav(INFO_NAV, () => setNavOpen(false))}
-        {isWeb && platform.release?.repoUrl && (
-          <>
-            <div className="nav-section">Project</div>
-            {platform.release.installerUrl && (
-              <a className="nav-item" href={platform.release.installerUrl} target="_blank" rel="noopener noreferrer">
-                <Download size={17} aria-hidden /> Download Desktop App
-              </a>
-            )}
-            <a className="nav-item" href={platform.release.repoUrl} target="_blank" rel="noopener noreferrer">
-              <Github size={17} aria-hidden /> Source Code
-            </a>
-            {platform.release.notesUrl && (
-              <a className="nav-item" href={platform.release.notesUrl} target="_blank" rel="noopener noreferrer">
-                <ScrollText size={17} aria-hidden /> Release Notes
-              </a>
-            )}
-          </>
-        )}
-        <div className="sidebar-foot">
-          v{platform.version} · {isWeb ? 'Web demo' : 'Desktop'} · offline
-        </div>
-      </nav>
-
-      <div className="topbar">
-        <a href={routePath('home')} style={{ textDecoration: 'none', color: 'inherit' }}>
-          <BrandWordmark size={24} />
-        </a>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={() => setNavOpen((o) => !o)}
-          aria-label="Toggle navigation"
-          aria-expanded={navOpen}
+      <header className="topnav">
+        <a
+          href={isWeb ? routePath('landing') : routePath('home')}
+          className="topnav-brand"
+          style={{ textDecoration: 'none' }}
         >
-          <Menu size={18} />
-        </button>
-      </div>
-      <nav className="topbar-nav" aria-label="Primary mobile">
-        {nav([...APP_NAV, ...INFO_NAV])}
-      </nav>
+          <BrandWordmark size={26} />
+        </a>
+
+        <nav className="topnav-tabs" aria-label="Primary">
+          {tab('home', 'Home')}
+          {tab('encrypt', 'Encrypt')}
+          {tab('decrypt', 'Decrypt')}
+        </nav>
+
+        <div className="topnav-side">
+          <nav className="topnav-quiet" aria-label="Learn">
+            {quietLink('how-it-works', 'How it works')}
+            {quietLink('security', 'Security')}
+            {quietLink('about', 'About')}
+          </nav>
+          <span className="topnav-badge" title={isWeb ? 'Web demo' : 'Desktop app'}>
+            {isWeb ? 'Web' : 'Desktop'} · v{platform.version}
+          </span>
+          <button
+            type="button"
+            className="topnav-menu-btn"
+            onClick={() => setNavOpen((o) => !o)}
+            aria-label="Toggle navigation"
+            aria-expanded={navOpen}
+          >
+            <Menu size={19} />
+          </button>
+        </div>
+      </header>
+
+      {navOpen && (
+        <nav className="nav-panel" aria-label="Navigation">
+          <div className="nav-panel-group">
+            <div className="nav-panel-label">Application</div>
+            {APP_NAV.map(({ route: r, label, icon: Icon }) => (
+              <Link
+                key={r}
+                to={r}
+                className={`nav-panel-item${route === r ? ' active' : ''}`}
+                onClick={() => setNavOpen(false)}
+              >
+                <Icon size={16} aria-hidden /> {label}
+              </Link>
+            ))}
+          </div>
+          <div className="nav-panel-group">
+            <div className="nav-panel-label">Learn</div>
+            {INFO_NAV.map(({ route: r, label, icon: Icon }) => (
+              <Link
+                key={r}
+                to={r}
+                className={`nav-panel-item${route === r ? ' active' : ''}`}
+                onClick={() => setNavOpen(false)}
+              >
+                <Icon size={16} aria-hidden /> {label}
+              </Link>
+            ))}
+          </div>
+          {isWeb && platform.release?.repoUrl && (
+            <div className="nav-panel-group">
+              <div className="nav-panel-label">Project</div>
+              {platform.release.installerUrl && (
+                <a className="nav-panel-item" href={platform.release.installerUrl} target="_blank" rel="noopener noreferrer">
+                  <Download size={16} aria-hidden /> Download Desktop App
+                </a>
+              )}
+              <a className="nav-panel-item" href={platform.release.repoUrl} target="_blank" rel="noopener noreferrer">
+                <Github size={16} aria-hidden /> Source Code
+              </a>
+              {platform.release.notesUrl && (
+                <a className="nav-panel-item" href={platform.release.notesUrl} target="_blank" rel="noopener noreferrer">
+                  <ScrollText size={16} aria-hidden /> Release Notes
+                </a>
+              )}
+            </div>
+          )}
+        </nav>
+      )}
 
       <main className="main">
         {route === 'home' && <HomePage />}

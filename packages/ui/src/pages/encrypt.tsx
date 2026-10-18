@@ -26,6 +26,7 @@ import {
   PasswordStrength,
   ProgressBlock,
   SegmentedControl,
+  Stage,
   Stat,
 } from '../components/ui.js';
 import { chunkSizeLabel, fileTypeLabel, formatBytes } from '../format.js';
@@ -54,6 +55,8 @@ export function EncryptPage() {
   }, [file, chunkSize]);
 
   const running = op.state.status === 'running';
+  const passwordOk =
+    password.length >= MIN_PASSWORD_LENGTH && confirm.length > 0 && password === confirm;
 
   async function pickFile() {
     const picked = await services.selectFiles({ multiple: false, purpose: 'input' }).catch((e) => {
@@ -273,13 +276,15 @@ export function EncryptPage() {
         </p>
       </header>
 
-      <div className="stack-lg">
-        {/* Step 1 — file */}
-        <section className="card card-pad">
-          <div className="card-title">
-            <span className="step-num">1</span> Select a file
-          </div>
-          <div className="card-sub">Any file type — photos, documents, videos, archives.</div>
+      <div className="stage-flow">
+        {/* Stage 1 — file */}
+        <Stage
+          num="01"
+          title="Select a file"
+          sub="Any file type — photos, documents, videos, archives."
+          status={file ? 'done' : 'active'}
+          meta={file ? 'Selected' : 'Required'}
+        >
           {file ? (
             <FileChip
               name={file.name}
@@ -295,17 +300,16 @@ export function EncryptPage() {
               <p className="sub">Up to 4 GiB</p>
             </button>
           )}
-        </section>
+        </Stage>
 
-        {/* Step 2 — chunk size */}
-        <section className="card card-pad">
-          <div className="card-title">
-            <span className="step-num">2</span> Part size
-          </div>
-          <div className="card-sub">
-            How large each encrypted piece should be. Parts can be slightly larger than the selected
-            size once package headers are included.
-          </div>
+        {/* Stage 2 — part size */}
+        <Stage
+          num="02"
+          title="Part size"
+          sub="How large each encrypted piece should be. Parts can run slightly larger than the selected size once headers are included."
+          status={file ? 'active' : 'pending'}
+          meta={estimate ? `~${estimate.parts} part${estimate.parts === 1 ? '' : 's'}` : undefined}
+        >
           <SegmentedControl
             ariaLabel="Part size"
             options={CHUNK_SIZE_OPTIONS.map((c) => ({ value: c, label: chunkSizeLabel(c) }))}
@@ -319,17 +323,21 @@ export function EncryptPage() {
               method's size limits — we can't guarantee parts fit every email provider.
             </p>
           )}
-        </section>
+        </Stage>
 
-        {/* Step 3 — password */}
-        <section className="card card-pad">
-          <div className="card-title">
-            <span className="step-num">3</span> Set a password
-          </div>
-          <div className="card-sub">
-            A long, unique passphrase works best. It is never stored or sent anywhere — share it
-            separately from the package. <strong>It cannot be recovered if lost.</strong>
-          </div>
+        {/* Stage 3 — password */}
+        <Stage
+          num="03"
+          title="Set a password"
+          sub={
+            <>
+              A long, unique passphrase works best. It is never stored or sent anywhere — share it
+              separately from the package. <strong>It cannot be recovered if lost.</strong>
+            </>
+          }
+          status={passwordOk ? 'done' : file ? 'active' : 'pending'}
+          meta={passwordOk ? 'Set' : undefined}
+        >
           <div className="stack">
             <PasswordField
               label="Password"
@@ -345,27 +353,37 @@ export function EncryptPage() {
               error={confirm && password !== confirm ? 'The passwords you entered do not match.' : undefined}
             />
           </div>
-        </section>
+        </Stage>
 
-        {/* Errors + run */}
-        {formError && (
-          <Alert kind="error">
-            <span>{formError}</span>
-          </Alert>
-        )}
-        {op.state.status === 'failed' && op.state.error && (
-          <Alert kind="error">
-            <span>{op.state.error.userMessage}</span>
-          </Alert>
-        )}
-        {op.state.status === 'cancelled' && (
-          <Alert kind="warn">
-            <span>The operation was cancelled. Partial output was discarded.</span>
-          </Alert>
-        )}
-
-        {running ? (
-          <section className="card card-pad">
+        {/* Stage 4 — run */}
+        <Stage
+          num="04"
+          title="Encrypt &amp; split"
+          sub={isDesktop ? 'The encrypted package is written to the output folder you choose.' : 'The package downloads straight from this browser — nothing is uploaded.'}
+          status={running ? 'active' : 'pending'}
+        >
+          {formError && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="error">
+                <span>{formError}</span>
+              </Alert>
+            </div>
+          )}
+          {op.state.status === 'failed' && op.state.error && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="error">
+                <span>{op.state.error.userMessage}</span>
+              </Alert>
+            </div>
+          )}
+          {op.state.status === 'cancelled' && (
+            <div style={{ marginBottom: 12 }}>
+              <Alert kind="warn">
+                <span>The operation was cancelled. Partial output was discarded.</span>
+              </Alert>
+            </div>
+          )}
+          {running ? (
             <div className="stack">
               <ProgressBlock
                 phaseLabel={phaseLabel(op.state.progress?.phase ?? 'preparing')}
@@ -378,21 +396,20 @@ export function EncryptPage() {
                 </button>
               </div>
             </div>
-          </section>
-        ) : (
-          <button type="button" className="btn btn-primary btn-lg" onClick={start} disabled={!file}>
-            <Lock size={17} /> Encrypt &amp; Split
-          </button>
-        )}
-
-        {isDesktop === false && (
-          <Alert kind="info">
-            <span>
-              Processed entirely in your browser. Your file, password, and keys are never sent to a
-              server.
-            </span>
-          </Alert>
-        )}
+          ) : (
+            <div className="stack">
+              <button type="button" className="btn btn-primary btn-lg" onClick={start} disabled={!file}>
+                <Lock size={17} /> Encrypt &amp; Split
+              </button>
+              {isDesktop === false && (
+                <p className="field-hint">
+                  Processed entirely in your browser. Your file, password, and keys are never sent
+                  to a server.
+                </p>
+              )}
+            </div>
+          )}
+        </Stage>
       </div>
     </div>
   );
