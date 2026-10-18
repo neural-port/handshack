@@ -26,8 +26,8 @@ function cspPlugin(): Plugin {
     apply: 'build',
     transformIndexHtml(html) {
       return html.replace(
-        '<meta name="color-scheme" content="light" />',
-        `<meta name="color-scheme" content="light" />\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`,
+        '<meta name="color-scheme" content="dark" />',
+        `<meta name="color-scheme" content="dark" />\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`,
       );
     },
   };

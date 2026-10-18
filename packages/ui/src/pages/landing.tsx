@@ -73,7 +73,7 @@ export function LandingPage() {
               Source
             </a>
           )}
-          <a href={routePath('home')} className="btn btn-primary btn-sm" style={{ marginLeft: 8 }}>
+          <a href={routePath('encrypt')} className="btn btn-primary btn-sm" style={{ marginLeft: 8 }}>
             Open the app
           </a>
         </div>
@@ -96,7 +96,7 @@ export function LandingPage() {
               HandShack directly in your browser — nothing is uploaded.
             </p>
             <div className="cta-row">
-              <a href={routePath('home')} className="btn btn-primary btn-lg">
+              <a href={routePath('encrypt')} className="btn btn-primary btn-lg">
                 Try HandShack <ArrowRight size={17} />
               </a>
               <a href="#download" className="btn btn-secondary btn-lg">
@@ -295,7 +295,7 @@ export function LandingPage() {
                 decryption. Packages are compatible with the desktop app.
               </p>
               <a
-                href={routePath('home')}
+                href={routePath('encrypt')}
                 className="btn btn-primary"
                 style={{ alignSelf: 'flex-start' }}
               >

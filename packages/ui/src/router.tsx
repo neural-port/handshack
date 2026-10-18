@@ -11,7 +11,8 @@ export type RouteId =
 
 const PATH_TO_ROUTE: Record<string, RouteId> = {
   '/': 'landing',
-  '/app': 'home',
+  '/app': 'encrypt',
+  '/app/home': 'home',
   '/app/encrypt': 'encrypt',
   '/app/decrypt': 'decrypt',
   '/app/how-it-works': 'how-it-works',
@@ -21,7 +22,7 @@ const PATH_TO_ROUTE: Record<string, RouteId> = {
 
 const ROUTE_TO_PATH: Record<RouteId, string> = {
   landing: '/',
-  home: '/app',
+  home: '/app/home',
   encrypt: '/app/encrypt',
   decrypt: '/app/decrypt',
   'how-it-works': '/app/how-it-works',

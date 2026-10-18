@@ -29,7 +29,6 @@ interface NavEntry {
 }
 
 const APP_NAV: NavEntry[] = [
-  { route: 'home', label: 'Home', icon: Home },
   { route: 'encrypt', label: 'Encrypt & Split', icon: Lock },
   { route: 'decrypt', label: 'Reassemble & Decrypt', icon: PackageOpen },
 ];
@@ -54,7 +53,7 @@ function RoutedApp() {
 
   if (route === 'landing') {
     // The desktop app has no marketing landing page — go straight to the app.
-    return platform.platform === 'web' ? <LandingPage /> : <AppShell route="home" />;
+    return platform.platform === 'web' ? <LandingPage /> : <AppShell route="encrypt" />;
   }
   return <AppShell route={route} />;
 }
@@ -100,7 +99,6 @@ function AppShell({ route }: { route: RouteId }) {
         </a>
 
         <nav className="topnav-tabs" aria-label="Primary">
-          {tab('home', 'Home')}
           {tab('encrypt', 'Encrypt')}
           {tab('decrypt', 'Decrypt')}
         </nav>
