@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "baseUrl": ".",
+    "paths": {
+      "@handshack/core": ["../../packages/core/src/index.ts"],
+      "@handshack/core/node": ["../../packages/core/src/node.ts"],
+      "@handshack/ui": ["../../packages/ui/src/index.ts"],
+      "@handshack/ui/styles.css": ["../../packages/ui/src/styles/global.css"]
+    }
+  },
+  "include": ["src/**/*", "electron.vite.config.ts", "index.html"]
+}

@@ -1,0 +1,31 @@
+appId: com.handshack.app
+productName: HandShack
+copyright: Copyright © 2026 HandShack contributors
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+  - package.json
+  # All code (core engine, UI, react) is bundled into out/ — node_modules in
+  # the asar would be dead weight.
+  - "!node_modules/**"
+asar: true
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  artifactName: HandShack-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: HandShack-Setup-${version}.${ext}
+  shortcutName: HandShack
+  deleteAppDataOnUninstall: false
+portable:
+  artifactName: HandShack-Portable-${version}.${ext}
+electronDownload:
+  cache: ~/.cache/electron

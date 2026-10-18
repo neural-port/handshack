@@ -1,0 +1,44 @@
+{
+  "name": "handshack",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Encrypt. Split. Share. Rebuild. Local-first file encryption and package splitting for web and Windows desktop.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/core",
+    "packages/ui",
+    "apps/web",
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev:web",
+    "dev:web": "npm run dev --workspace @handshack/web",
+    "dev:desktop": "npm run dev --workspace @handshack/desktop",
+    "lint": "eslint .",
+    "typecheck": "tsc --build --pretty",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --project cross-platform",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace @handshack/web",
+    "build:desktop": "npm run build --workspace @handshack/desktop",
+    "package:win": "npm run package:win --workspace @handshack/desktop",
+    "verify:release": "node scripts/verify-release.mjs",
+    "serve:web": "node scripts/serve-web.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "typescript": "~5.9.3",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20.19.0",
+    "npm": ">=10.0.0"
+  }
+}

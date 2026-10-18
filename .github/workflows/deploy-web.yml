@@ -1,0 +1,61 @@
+name: deploy-web
+
+# Deploys the static web demo to GitHub Pages.
+# Required one-time repo setup: Settings → Pages → Source = "GitHub Actions".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4.2.2
+
+      - uses: actions/setup-node@v4.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      # The build uses a relative base ('./'), so it works under any Pages path
+      # (user site or project subpath). VITE_BASE_PATH can override if needed.
+      - name: Build web app
+        run: npm run build:web
+        env:
+          VITE_REPO_URL: ${{ vars.HANDSHACK_REPO_URL }}
+          VITE_RELEASE_VERSION: ${{ vars.HANDSHACK_RELEASE_VERSION }}
+          VITE_RELEASE_INSTALLER_URL: ${{ vars.HANDSHACK_INSTALLER_URL }}
+          VITE_RELEASE_PORTABLE_URL: ${{ vars.HANDSHACK_PORTABLE_URL }}
+          VITE_RELEASE_NOTES_URL: ${{ vars.HANDSHACK_NOTES_URL }}
+
+      - name: Verify release build
+        run: npm run verify:release
+
+      - uses: actions/configure-pages@v5.0.0
+
+      - uses: actions/upload-pages-artifact@v3.0.1
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4.0.5
