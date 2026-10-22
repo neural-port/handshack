@@ -19,6 +19,18 @@ desktop app and vice versa — verified by automated tests.
 
 ---
 
+## Get HandShack
+
+- **Web app** — runs entirely in your browser, nothing to install:
+  **https://neural-port.github.io/handshack/**
+- **Windows desktop** — installer & portable builds on the
+  [Releases page](https://github.com/neural-port/handshack/releases)
+  (`HandShack-Setup-*.exe` or `HandShack-Portable-*.exe`; verify with
+  `SHA256SUMS.txt`). Builds are unsigned — expect a SmartScreen prompt on
+  first run.
+
+---
+
 ## Quick start
 
 ```powershell
@@ -47,7 +59,8 @@ decrypted.
 
 ## Using the web demo
 
-1. `npm run dev:web` → open `http://localhost:5173` (or open the deployed site).
+1. `npm run dev:web` → open `http://localhost:5173` (or open the
+   [deployed site](https://neural-port.github.io/handshack/)).
 2. **Encrypt & Split**: pick a file, choose part size (1–4 MiB), set a password
    (≥8 chars) → get `name.hsmanifest.json` + `name.partNNN.hsp` files —
    download individually or as one ZIP.
