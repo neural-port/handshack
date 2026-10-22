@@ -41,13 +41,7 @@ jobs:
         run: npm run package:win
 
       - name: Generate SHA256SUMS.txt
-        working-directory: apps/desktop/release
-        shell: pwsh
-        run: |
-          Get-ChildItem -File *.exe | ForEach-Object {
-            "$((Get-FileHash $_.Name -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
-          } | Out-File -Encoding utf8 SHA256SUMS.txt
-          Get-Content SHA256SUMS.txt
+        run: node scripts/write-checksums.mjs
 
       - name: List artifacts
         working-directory: apps/desktop/release

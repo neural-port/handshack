@@ -4,6 +4,7 @@ import {
   MAX_PASSWORD_LENGTH,
   PACKAGE_ID_BYTES,
   PACKAGE_ID_PREFIX,
+  PACKAGE_MAGIC,
   PACKAGE_PREAMBLE_SIZE,
   RECORD_SIZE,
   SALT_SIZE,
@@ -12,7 +13,6 @@ import { serializeHeader } from '../crypto/header.js';
 import { encryptRecord, payloadSizeFor, recordCountForSize } from '../crypto/records.js';
 import { bytesToBase64Url, bytesToHex, concatBytes, u32be, utf8ToBytes } from '../encoding.js';
 import { HandshackError } from '../errors.js';
-import { PACKAGE_MAGIC } from '../constants.js';
 import type {
   ByteSink,
   ByteSource,
@@ -26,6 +26,7 @@ import {
   validateInputFileSize,
   validateKdfParams,
 } from '../validation.js';
+import { validateVideoInput } from '../media/index.js';
 import { createManifest, serializeManifest } from './manifest.js';
 import { PartRouter, planParts } from './split.js';
 
@@ -86,6 +87,7 @@ export async function encryptFile(req: EncryptRequest): Promise<EncryptResult> {
     );
   }
   validateInputFileSize(source.size);
+  await validateVideoInput(req.fileName, source);
   validateChunkSize(req.chunkSize);
   const origName = sanitizeFileName(req.fileName);
   const kdfParams = { ...KDF_DEFAULTS };

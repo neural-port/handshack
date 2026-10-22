@@ -32,7 +32,7 @@ function SpecSheet() {
           ['Key derivation', 'scrypt · N=32768 · r=8 · p=1'],
           ['Integrity', 'SHA-256 · per part + full file'],
           ['Parts', '.hsp · numbered · size-capped'],
-          ['Manifest', '.hsmanifest.json · signed metadata'],
+          ['Manifest', '.hsmanifest.json · integrity-bound metadata'],
           ['Cloud storage', 'none — ever'],
         ].map(([k, v]) => (
           <div className="spec-row" key={k}>
@@ -56,7 +56,7 @@ export function LandingPage() {
   return (
     <div className="landing">
       <nav className="landing-nav">
-        <a href="#/" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="HandShack home">
+        <a href="#/welcome" style={{ textDecoration: 'none', color: 'inherit' }} aria-label="HandShack home">
           <BrandWordmark size={28} />
         </a>
         <div className="links">

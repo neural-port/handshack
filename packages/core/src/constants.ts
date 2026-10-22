@@ -53,7 +53,12 @@ export const CHUNK_SIZE_OPTIONS = [
 export const DEFAULT_CHUNK_SIZE = 4 * 1024 * 1024;
 
 /** Resource limits. */
+/** Format ceiling — the largest file a package may describe, so old packages stay readable. */
 export const MAX_FILE_SIZE = 4 * 1024 * 1024 * 1024; // 4 GiB
+/** Input ceiling — the largest file this build will encrypt. */
+export const MAX_INPUT_FILE_SIZE = 1 * 1024 * 1024 * 1024; // 1 GiB
+/** Videos are accepted up to 1080p: the shorter side may not exceed 1080 pixels. */
+export const MAX_VIDEO_SHORT_SIDE = 1080;
 export const MAX_PART_COUNT = 4096;
 export const MAX_MANIFEST_SIZE = 1024 * 1024; // 1 MiB
 export const MAX_HEADER_SIZE = 64 * 1024; // 64 KiB

@@ -10,10 +10,10 @@ function renderApp(platform = makePlatform()) {
 }
 
 describe('Encrypt & Split page', () => {
-  it('renders the workflow steps', async () => {
+  it('renders plain file, split-size, password, and action areas', async () => {
     window.location.hash = '#/app/encrypt';
     renderApp();
-    expect(await screen.findByText('Select a file')).toBeInTheDocument();
+    expect(await screen.findByText('Choose a file')).toBeInTheDocument();
     expect(screen.getByText('Part size')).toBeInTheDocument();
     expect(screen.getByText('Set a password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /encrypt & split/i })).toBeDisabled();
@@ -22,16 +22,16 @@ describe('Encrypt & Split page', () => {
   it('shows file details and an estimate after selection', async () => {
     window.location.hash = '#/app/encrypt';
     renderApp();
-    await userEvent.click(await screen.findByText('Choose a file'));
-    expect(await screen.findByText('photo.jpg')).toBeInTheDocument();
-    expect(screen.getByText(/estimated output/i)).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('button', { name: /browse files/i }));
+    expect((await screen.findAllByText('photo.jpg')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/1 part/).length).toBeGreaterThan(0);
   });
 
   it('requires a password ≥8 chars before running', async () => {
     const platform = makePlatform();
     window.location.hash = '#/app/encrypt';
     renderApp(platform);
-    await userEvent.click(await screen.findByText('Choose a file'));
+    await userEvent.click(await screen.findByRole('button', { name: /browse files/i }));
     await userEvent.click(screen.getByRole('button', { name: /encrypt & split/i }));
     expect(
       await screen.findByText(/enter a password of at least 8 characters/i),
@@ -43,7 +43,7 @@ describe('Encrypt & Split page', () => {
     const platform = makePlatform();
     window.location.hash = '#/app/encrypt';
     renderApp(platform);
-    await userEvent.click(await screen.findByText('Choose a file'));
+    await userEvent.click(await screen.findByRole('button', { name: /browse files/i }));
     await userEvent.type(screen.getByLabelText('Password'), 'a-long-passphrase-1');
     await userEvent.type(screen.getByLabelText('Confirm password'), 'different-phrase');
     expect(screen.getByText('The passwords you entered do not match.')).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('Encrypt & Split page', () => {
     const platform = makePlatform();
     window.location.hash = '#/app/encrypt';
     renderApp(platform);
-    await userEvent.click(await screen.findByText('Choose a file'));
+    await userEvent.click(await screen.findByRole('button', { name: /browse files/i }));
     await userEvent.type(screen.getByLabelText('Password'), 'a-long-passphrase-1');
     await userEvent.type(screen.getByLabelText('Confirm password'), 'a-long-passphrase-1');
     await userEvent.click(screen.getByRole('button', { name: /encrypt & split/i }));
@@ -72,7 +72,7 @@ describe('Encrypt & Split page', () => {
     });
     window.location.hash = '#/app/encrypt';
     renderApp(platform);
-    await userEvent.click(await screen.findByText('Choose a file'));
+    await userEvent.click(await screen.findByRole('button', { name: /browse files/i }));
     await userEvent.type(screen.getByLabelText('Password'), 'a-long-passphrase-1');
     await userEvent.type(screen.getByLabelText('Confirm password'), 'a-long-passphrase-1');
     await userEvent.click(screen.getByRole('button', { name: /encrypt & split/i }));
@@ -117,17 +117,32 @@ describe('Reassemble & Decrypt page', () => {
     renderApp(platform);
     await userEvent.click(await screen.findByText('Choose package files'));
     expect(await screen.findByText(/2 parts are missing/i)).toBeInTheDocument();
-    const btn = screen.getByRole('button', { name: /reassemble & decrypt/i });
+    const btn = screen.getByRole('button', { name: /restore file/i });
     expect(btn).toBeDisabled();
     expect(platform.decrypt).not.toHaveBeenCalled();
   });
 });
 
 describe('navigation', () => {
-  it('routes between app pages via the top navigation', async () => {
-    window.location.hash = '#/app/home';
+  it('opens directly into the encrypt workbench from the root route', async () => {
+    window.location.hash = '#/';
     renderApp();
-    expect(await screen.findByText('Your files. Your control.')).toBeInTheDocument();
+    expect(await screen.findByText('Choose a file')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Encrypt and split' })).toHaveClass('active');
+    expect(screen.getByRole('link', { name: 'Restore a file' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /toggle navigation/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the encrypt workbench at the app route', async () => {
+    window.location.hash = '#/app';
+    renderApp();
+    expect(await screen.findByText('Choose a file')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Encrypt and split' })).toHaveClass('active');
+  });
+
+  it('routes between app pages via the top navigation', async () => {
+    window.location.hash = '#/app/encrypt';
+    renderApp();
     await userEvent.click(screen.getAllByRole('link', { name: 'Security' })[0]!);
     await waitFor(() => {
       expect(window.location.hash).toBe('#/app/security');
@@ -137,8 +152,8 @@ describe('navigation', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders the landing page at the root for the web platform', async () => {
-    window.location.hash = '#/';
+  it('renders the product overview at its dedicated route', async () => {
+    window.location.hash = '#/welcome';
     renderApp();
     expect(await screen.findByText(/Private files\./)).toBeInTheDocument();
     expect(screen.getByText('Try HandShack')).toBeInTheDocument();

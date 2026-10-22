@@ -19,7 +19,7 @@ export function HowItWorksPage() {
         </p>
         <p>
           The file is then encrypted with <strong>AES-256-GCM</strong>, an authenticated cipher.
-          Authentication matters: it means tampering is detected, not just scrambled. Every 1&nbsp;MiB
+          Authentication matters: it means tampering is detected, not just scrambled. Every 1&nbsp;MB
           "record" of the file is sealed with its own unique nonce and authenticated data that binds
           the package header, the record's position, and whether it is the final record. Reordered,
           duplicated, truncated, or modified records are all rejected.
@@ -34,7 +34,7 @@ export function HowItWorksPage() {
           </p>
         </div>
         <p>
-          The encrypted stream is cut into parts at your chosen size (1–4&nbsp;MiB). Each part gets a
+          The encrypted stream is cut into parts at your chosen size (1–4&nbsp;MB). Each part gets a
           deterministic name like <code>photo.jpg.part003.hsp</code> and a SHA-256 fingerprint stored
           in the manifest, so damaged or foreign parts are identified by name before decryption even
           starts.

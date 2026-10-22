@@ -231,13 +231,13 @@ describe('both platforms reject the same failures', () => {
 describe('post-write verification', () => {
   it('verifyWrittenParts re-reads disk parts and matches manifest hashes', async () => {
     const dir = await tmpDir();
-    const inputPath = path.join(dir, 'clip.mov');
+    const inputPath = path.join(dir, 'clip.dat');
     await fs.writeFile(inputPath, sampleBytes(500_000, 9));
     const source = await FileByteSource.open(inputPath);
     const partPaths: string[] = [];
     const result = await encryptFile({
       source,
-      fileName: 'clip.mov',
+      fileName: 'clip.dat',
       password: PASSWORD,
       chunkSize: CHUNK,
       provider: node_,

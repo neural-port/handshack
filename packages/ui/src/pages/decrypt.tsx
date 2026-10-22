@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   Copy,
   Download,
-  FileCheck2,
   FolderOpen,
   PackageOpen,
   RotateCcw,
@@ -17,7 +16,6 @@ import {
   PartList,
   PasswordField,
   ProgressBlock,
-  Stage,
   Stat,
 } from '../components/ui.js';
 import { fileTypeLabel, formatBytes } from '../format.js';
@@ -48,6 +46,7 @@ export function DecryptPage() {
     [inspection],
   );
   const packageReady = !!inspection && missing.size === 0;
+  const canRestore = packageReady && password.length > 0 && !running;
 
   async function inspect(files: SelectedFileRef[]) {
     if (files.length === 0) return;
@@ -79,7 +78,10 @@ export function DecryptPage() {
   async function addMore() {
     const picked = await services
       .selectFiles({ multiple: true, purpose: 'package' })
-      .catch(() => null);
+      .catch((e) => {
+        setInspectError(userMessageFor(e));
+        return null;
+      });
     if (picked && picked.length > 0) {
       const merged = [...selected];
       for (const f of picked) if (!merged.some((m) => m.name === f.name)) merged.push(f);
@@ -160,20 +162,14 @@ export function DecryptPage() {
           <div className="stat-grid">
             <Stat label="Restored file" value={result.fileName} />
             <Stat label="Size" value={formatBytes(result.size)} />
-            <Stat
-              label="Authentication"
-              value={<span className="badge badge-success">Passed</span>}
-            />
-            <Stat
-              label="Integrity (SHA-256)"
-              value={<span className="badge badge-success">Verified</span>}
-            />
+            <Stat label="Authentication" value={<span className="badge badge-success">Passed</span>} />
+            <Stat label="Integrity (SHA-256)" value={<span className="badge badge-success">Verified</span>} />
             <Stat label="Package ID" value={result.packageId} mono />
             <Stat label="SHA-256" value={`${result.sha256Hex.slice(0, 24)}…`} mono />
           </div>
         </div>
 
-        <div className="card card-pad">
+        <div className="card card-pad mt-16">
           <div className="stack">
             {d.kind === 'download' ? (
               <div className="btn-row">
@@ -204,8 +200,12 @@ export function DecryptPage() {
                     type="button"
                     className="btn btn-ghost"
                     onClick={async () => {
-                      await navigator.clipboard.writeText(result.sha256Hex).catch(() => undefined);
-                      setNotice('SHA-256 copied.');
+                      try {
+                        await navigator.clipboard.writeText(result.sha256Hex);
+                        setNotice('SHA-256 copied.');
+                      } catch {
+                        setNotice('Copy failed. Select the hash and copy it manually.');
+                      }
                     }}
                   >
                     <Copy size={15} /> Copy SHA-256
@@ -228,176 +228,175 @@ export function DecryptPage() {
 
   /* ---------- form ---------- */
   return (
-    <div>
-      <header className="page-head">
-        <div className="eyebrow">Reassemble &amp; Decrypt</div>
+    <div className="flow">
+      <header className="flow-head">
+        <p className="flow-kicker">Restore &amp; decrypt</p>
         <h1>Restore a file</h1>
-        <p>
-          Select the manifest and every part of a HandShack package, enter the password, and get the
-          original file back — byte for byte.
+        <p className="flow-lede">
+          Select the manifest and every part of a package, then enter its password.
         </p>
       </header>
 
-      <div className="stage-flow">
-        <Stage
-          num="01"
-          title="Select package files"
-          sub={
-            <>
-              Pick the <span className="mono">.hsmanifest.json</span> file and all{' '}
-              <span className="mono">.hsp</span> parts
-              {services.capabilities.zipDownload ? ' — or a ZIP containing the whole package' : ''}.
-            </>
-          }
-          status={packageReady ? 'done' : 'active'}
-          meta={
-            packageReady
-              ? 'Complete set'
-              : missing.size > 0
-                ? `${missing.size} missing`
-                : undefined
-          }
-        >
-          <Dropzone
-            lead="Choose package files"
-            sub="Manifest + all parts · you can select them together"
-            multiple
-            onPick={pickFiles}
-            icon={<PackageOpen size={20} />}
-          />
-
-          {selected.length > 0 && (
-            <div className="stack mt-16">
-              {selected.map((f) => (
-                <FileChip
-                  key={f.name}
-                  name={f.name}
-                  meta={`${fileTypeLabel(f.name)} · ${formatBytes(f.size)}`}
-                />
-              ))}
+      <ol className="steps">
+        <li className={`step${packageReady ? ' is-done' : ' is-current'}`}>
+          <span className="step-marker">1</span>
+          <div className="step-body">
+            <div className="step-head">
+              <h2>Select package files</h2>
+              <span className="step-status">
+                {packageReady ? 'Complete' : missing.size > 0 ? `${missing.size} missing` : 'Required'}
+              </span>
             </div>
-          )}
+            <p className="step-help">
+              Choose the <span className="mono">.hsmanifest.json</span> file and every{' '}
+              <span className="mono">.hsp</span> part
+              {services.capabilities.zipDownload ? ', or a ZIP containing them' : ''}.
+            </p>
+            <Dropzone
+              lead="Choose package files"
+              sub="Select the manifest and its parts together"
+              multiple
+              onPick={pickFiles}
+              icon={<PackageOpen size={22} />}
+            />
 
-          {inspection && (
-            <div className="stack mt-16">
-              <div className="row-between wrap">
-                <div className="row">
-                  <FileCheck2 size={16} style={{ color: 'var(--accent)' }} />
-                  <strong style={{ fontSize: 14 }}>
-                    {inspection.manifest.originalName}
-                  </strong>
-                  <span className="badge badge-muted">
-                    {inspection.manifest.partCount} parts
-                  </span>
-                  <span className="badge badge-muted">
-                    {formatBytes(inspection.manifest.originalSize)}
-                  </span>
+            {selected.length > 0 && (
+              <div className="selected-files">
+                {selected.map((f) => (
+                  <FileChip
+                    key={f.name}
+                    name={f.name}
+                    meta={`${fileTypeLabel(f.name)} · ${formatBytes(f.size)}`}
+                  />
+                ))}
+              </div>
+            )}
+
+            {inspection && (
+              <div className="inspection">
+                <div className="inspection-summary">
+                  <div>
+                    <span className="field-label">Original file</span>
+                    <strong>{inspection.manifest.originalName}</strong>
+                  </div>
+                  <div>
+                    <span className="field-label">Parts present</span>
+                    <strong>
+                      {present.size} / {inspection.manifest.partCount}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="field-label">Original size</span>
+                    <strong>{formatBytes(inspection.manifest.originalSize)}</strong>
+                  </div>
+                  {missing.size > 0 && (
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={addMore}>
+                      Add missing files
+                    </button>
+                  )}
                 </div>
+
+                <PartList names={inspection.manifest.parts.map((p) => p.name)} present={present} />
+
                 {missing.size > 0 && (
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={addMore}>
-                    Add more files
-                  </button>
+                  <Alert kind="warn">
+                    <span>
+                      {missing.size} part{missing.size === 1 ? ' is' : 's are'} missing. Add the
+                      remaining files to continue.
+                    </span>
+                  </Alert>
+                )}
+                {inspection.unexpected.length > 0 && (
+                  <Alert kind="warn">
+                    <span>
+                      These files don't belong to this package:{' '}
+                      {inspection.unexpected.slice(0, 5).join(', ')}
+                      {inspection.unexpected.length > 5 ? '…' : ''}
+                    </span>
+                  </Alert>
                 )}
               </div>
+            )}
 
-              <PartList names={inspection.manifest.parts.map((p) => p.name)} present={present} />
-
-              {missing.size > 0 && (
-                <Alert kind="warn">
-                  <span>
-                    {missing.size} part{missing.size === 1 ? ' is' : 's are'} missing. Add the
-                    remaining files to continue.
-                  </span>
+            {inspectError && (
+              <div className="mt-8">
+                <Alert kind="error">
+                  <span>{inspectError}</span>
                 </Alert>
-              )}
-              {inspection.unexpected.length > 0 && (
-                <Alert kind="warn">
-                  <span>
-                    These files don't belong to this package:{' '}
-                    {inspection.unexpected.slice(0, 5).join(', ')}
-                    {inspection.unexpected.length > 5 ? '…' : ''}
-                  </span>
-                </Alert>
-              )}
-            </div>
-          )}
-
-          {inspectError && (
-            <div className="mt-16">
-              <Alert kind="error">
-                <span>{inspectError}</span>
-              </Alert>
-            </div>
-          )}
-        </Stage>
-
-        <Stage
-          num="02"
-          title="Enter the password"
-          sub={`The same password used when the package was created (up to ${MAX_PASSWORD_LENGTH} characters).`}
-          status={password ? 'done' : packageReady ? 'active' : 'pending'}
-        >
-          <PasswordField
-            label="Password"
-            value={password}
-            onChange={setPassword}
-            autoComplete="current-password"
-            placeholder="Package password"
-          />
-        </Stage>
-
-        <Stage
-          num="03"
-          title="Reassemble &amp; decrypt"
-          sub="The restored file is verified byte-for-byte against the manifest before it is delivered."
-          status={running ? 'active' : 'pending'}
-        >
-          {op.state.status === 'failed' && op.state.error && (
-            <div style={{ marginBottom: 12 }}>
-              <Alert kind="error">
-                <span>{op.state.error.userMessage}</span>
-              </Alert>
-            </div>
-          )}
-          {op.state.status === 'cancelled' && (
-            <div style={{ marginBottom: 12 }}>
-              <Alert kind="warn">
-                <span>The operation was cancelled. No partial file was kept.</span>
-              </Alert>
-            </div>
-          )}
-          {missing.size > 0 && inspection && !running && (
-            <div style={{ marginBottom: 12 }}>
-              <Alert kind="info">
-                <span>Decryption stays locked until every part of the package is present.</span>
-              </Alert>
-            </div>
-          )}
-          {running ? (
-            <div className="stack">
-              <ProgressBlock
-                phaseLabel={phaseLabel(op.state.progress?.phase ?? 'preparing')}
-                done={op.state.progress?.done ?? 0}
-                total={op.state.progress?.total ?? 0}
-              />
-              <div className="btn-row">
-                <button type="button" className="btn btn-danger-ghost" onClick={op.cancel}>
-                  Cancel
-                </button>
               </div>
+            )}
+          </div>
+        </li>
+
+        <li className={`step${password ? ' is-done' : ''}`}>
+          <span className="step-marker">2</span>
+          <div className="step-body">
+            <div className="step-head">
+              <h2>Enter the password</h2>
+              <span className="step-status">{password ? 'Entered' : 'Required'}</span>
             </div>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-primary btn-lg"
-              onClick={start}
-              disabled={!inspection || missing.size > 0 || !password}
-            >
-              <Save size={17} /> Reassemble &amp; Decrypt
-            </button>
-          )}
-        </Stage>
+            <p className="step-help">
+              The password used when the package was created. It is used locally and never saved.
+            </p>
+            <PasswordField
+              label="Package password"
+              value={password}
+              onChange={setPassword}
+              autoComplete="current-password"
+              placeholder="Enter the passphrase"
+              hint={`Up to ${MAX_PASSWORD_LENGTH} characters.`}
+            />
+          </div>
+        </li>
+      </ol>
+
+      <div className="flow-feedback" aria-live="polite">
+        {op.state.status === 'failed' && op.state.error && (
+          <Alert kind="error">
+            <span>{op.state.error.userMessage}</span>
+          </Alert>
+        )}
+        {op.state.status === 'cancelled' && (
+          <Alert kind="warn">
+            <span>The operation was cancelled. No partial file was kept.</span>
+          </Alert>
+        )}
       </div>
+
+      <div className="flow-action">
+        <div className="flow-action-copy">
+          {running ? (
+            <ProgressBlock
+              phaseLabel={phaseLabel(op.state.progress?.phase ?? 'preparing')}
+              done={op.state.progress?.done ?? 0}
+              total={op.state.progress?.total ?? 0}
+            />
+          ) : (
+            <>
+              <strong>{inspection?.manifest.originalName ?? 'No package selected'}</strong>
+              <span>
+                {inspection
+                  ? `${present.size} of ${inspection.manifest.partCount} parts present`
+                  : 'Select the manifest and all parts to continue.'}
+              </span>
+            </>
+          )}
+        </div>
+        {running ? (
+          <button type="button" className="btn btn-secondary" onClick={op.cancel}>
+            Cancel
+          </button>
+        ) : (
+          <button type="button" className="btn btn-primary" onClick={start} disabled={!canRestore}>
+            <Save size={17} /> Restore file
+          </button>
+        )}
+      </div>
+
+      <p className="flow-note">
+        The original file is released only after the password is authenticated and the full-file
+        integrity check passes.
+      </p>
     </div>
   );
 }

@@ -41,6 +41,7 @@ export default defineConfig({
     build: {
       outDir: 'out/renderer',
       target: 'es2022',
+      assetsInlineLimit: 0,
     },
   },
 });

@@ -22,7 +22,7 @@ desktop app and vice versa — verified by automated tests.
 ## Quick start
 
 ```powershell
-npm install          # installs all workspace deps (Node 20.11+ / 22.x recommended)
+npm install          # installs all workspace deps (Node ≥ 20.19; 22.x recommended)
 
 npm run dev:web      # web demo → http://localhost:5173
 npm run dev:desktop  # Electron dev mode (hot reload)
@@ -31,6 +31,19 @@ npm test             # all unit + security + round-trip + UI + compat tests
 npm run lint         # eslint
 npm run typecheck    # strict TypeScript project build
 ```
+
+## Input limits
+
+| Input | Limit |
+|---|---|
+| Any file | 1 GB |
+| Video | 1080p or smaller (the shorter side may not exceed 1080 px) |
+
+The 1080p rule is checked by reading container headers only — HandShack never
+decodes or re-encodes media. MP4, M4V, MOV, 3GP, MKV, and WebM can be verified;
+other video containers are rejected rather than accepted without a check.
+Packages created by earlier builds that recorded files up to 4 GB can still be
+decrypted.
 
 ## Using the web demo
 
@@ -73,6 +86,8 @@ signing is configured — see `docs/RELEASE_PROCESS.md`.
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, honest limitations, vuln reporting |
 | [`docs/WEB_PRIVACY.md`](docs/WEB_PRIVACY.md) | What the web demo does/doesn't send + browser limits |
 | [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md) | Pages deployment, desktop release workflow, signing |
+| [`docs/RELEASE_COA.md`](docs/RELEASE_COA.md) | Certificate of Analysis for 0.1.0: artifact hashes, measured gates, open items |
+| [`docs/AUDIT.md`](docs/AUDIT.md) | Final audit: findings and fixes, cleared checks, observations, residual risk |
 
 ## Repository layout
 

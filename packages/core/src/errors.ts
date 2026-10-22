@@ -19,6 +19,8 @@ export type HandshackErrorCode =
   | 'authentication-failed'
   | 'integrity-failed'
   | 'file-too-large'
+  | 'video-resolution-too-high'
+  | 'video-unreadable'
   | 'too-many-parts'
   | 'unsafe-filename'
   | 'password-mismatch'
@@ -47,6 +49,10 @@ const DEFAULT_MESSAGES: Record<HandshackErrorCode, string> = {
     'Unable to decrypt this package. Check the password and verify that all parts belong to the same package and are intact.',
   'integrity-failed': 'The restored file did not pass integrity verification.',
   'file-too-large': 'The selected file is larger than the supported maximum size.',
+  'video-resolution-too-high':
+    'This video is larger than 1080p. Use a version of the video that is 1080p or smaller.',
+  'video-unreadable':
+    'HandShack cannot verify the resolution of this video format. Use MP4, MOV, 3GP, MKV, or WebM.',
   'too-many-parts': 'This package has more parts than supported.',
   'unsafe-filename': 'The recorded file name is not safe to use.',
   'password-mismatch': 'The passwords you entered do not match.',

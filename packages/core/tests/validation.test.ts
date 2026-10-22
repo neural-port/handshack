@@ -14,7 +14,7 @@ import {
   validateManifest,
   type ScryptParams,
   KDF_DEFAULTS,
-  MAX_FILE_SIZE,
+  MAX_INPUT_FILE_SIZE,
   DEFAULT_CHUNK_SIZE,
 } from '../src/index.js';
 import { cloneManifest, deterministicBytes, encryptInMemory, PASSWORD } from './helpers.js';
@@ -102,8 +102,8 @@ describe('validateChunkSize / file size', () => {
   });
   it('enforces max file size', () => {
     expect(() => validateInputFileSize(0)).not.toThrow();
-    expect(() => validateInputFileSize(MAX_FILE_SIZE)).not.toThrow();
-    expect(() => validateInputFileSize(MAX_FILE_SIZE + 1)).toThrow(HandshackError);
+    expect(() => validateInputFileSize(MAX_INPUT_FILE_SIZE)).not.toThrow();
+    expect(() => validateInputFileSize(MAX_INPUT_FILE_SIZE + 1)).toThrow(HandshackError);
     expect(() => validateInputFileSize(-5)).toThrow(HandshackError);
   });
 });

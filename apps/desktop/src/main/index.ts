@@ -38,7 +38,7 @@ import type {
   InspectResult,
   PickedFile,
 } from '../shared/api.js';
-import { MAX_FILE_SIZE, MAX_MANIFEST_SIZE, MAX_PART_COUNT, MIN_PASSWORD_LENGTH } from '@handshack/core';
+import { MAX_INPUT_FILE_SIZE, MAX_MANIFEST_SIZE, MAX_PART_COUNT, MIN_PASSWORD_LENGTH } from '@handshack/core';
 
 const provider = new NodeCryptoProvider();
 let win: BrowserWindow | null = null;
@@ -154,7 +154,13 @@ async function inspectPackage(rawPaths: unknown): Promise<InspectResult> {
 async function findCollisions(dirRaw: unknown, baseRaw: unknown): Promise<string[]> {
   const dir = assertApproved(dirRaw, 'dir');
   const base = sanitizeFileName(assertString(baseRaw, 'baseName', 256));
-  const names = await fs.readdir(dir).catch(() => [] as string[]);
+  const names = await fs.readdir(dir).catch((err: unknown) => {
+    throw new HandshackError(
+      'io-error',
+      `cannot list ${dir}: ${String(err)}`,
+      'The output folder could not be read. Choose another folder.',
+    );
+  });
   const manifestName = `${base}.hsmanifest.json`;
   const hits = names.filter(
     (n) => n === manifestName || (n.startsWith(`${base}.part`) && n.endsWith('.hsp')),
@@ -251,30 +257,43 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
   validateChunkSize(chunkSize);
   const overwrite = params?.overwrite === true;
 
-  const inputStat = await fs.stat(inputPath).catch((e) => {
-    throw e.code === 'ENOENT' ? new HandshackError('io-error', `missing input ${inputPath}`) : e;
-  });
-  validateInputFileSize(inputStat.size);
-  if (inputStat.size > MAX_FILE_SIZE) throw new HandshackError('file-too-large');
-  const dirStat = await fs.stat(outputDir).catch(() => null);
-  if (!dirStat?.isDirectory()) throw new HandshackError('io-error', 'output dir missing', 'The selected output folder no longer exists.');
-
-  // Pre-scan for collisions so we fail BEFORE doing the cryptographic work.
-  const base = sanitizeFileName(path.basename(inputPath));
-  const collisions = await findCollisions(outputDir, base);
-  if (!overwrite && collisions.length > 0) {
-    throw new HandshackError('save-failed', `existing: ${collisions[0]}`, `Files for "${base}" already exist in the selected folder.`);
+  // One operation at a time. The check-and-claim is synchronous, so no
+  // interleaving is possible before the first await.
+  if (currentOp) {
+    throw new HandshackError(
+      'invalid-input',
+      'operation already in progress',
+      'Another operation is already in progress.',
+    );
   }
-
-  const stageDir = await fs.mkdtemp(path.join(outputDir, '.handshack-stage-'));
-  const backupDir = path.join(stageDir, 'backups');
   const ctrl = new AbortController();
   currentOp = ctrl;
-  const report = (e: ProgressEvent) => sender.send('op:progress', e);
-  const stagedPartPaths: string[] = [];
+
+  let stageDir: string | null = null;
   let source: FileByteSource | null = null;
   let preserveStage = false;
   try {
+    const inputStat = await fs.stat(inputPath).catch((e) => {
+      throw e.code === 'ENOENT' ? new HandshackError('io-error', `missing input ${inputPath}`) : e;
+    });
+    validateInputFileSize(inputStat.size);
+    if (inputStat.size > MAX_INPUT_FILE_SIZE) throw new HandshackError('file-too-large');
+    const dirStat = await fs.stat(outputDir).catch(() => null);
+    if (!dirStat?.isDirectory()) throw new HandshackError('io-error', 'output dir missing', 'The selected output folder no longer exists.');
+
+    // Pre-scan for collisions so we fail BEFORE doing the cryptographic work.
+    const base = sanitizeFileName(path.basename(inputPath));
+    const collisions = await findCollisions(outputDir, base);
+    if (!overwrite && collisions.length > 0) {
+      throw new HandshackError('save-failed', `existing: ${collisions[0]}`, `Files for "${base}" already exist in the selected folder.`);
+    }
+
+    const staging = await fs.mkdtemp(path.join(outputDir, '.handshack-stage-'));
+    stageDir = staging;
+    const backupDir = path.join(staging, 'backups');
+    const report = (e: ProgressEvent) => sender.send('op:progress', e);
+    const stagedPartPaths: string[] = [];
+
     source = await FileByteSource.open(inputPath);
     const result = await encryptFile({
       source,
@@ -286,12 +305,12 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
       onProgress: report,
       generator: 'handshack-desktop',
       openPartSink: (_i, name) => {
-        const p = path.join(stageDir, name);
+        const p = path.join(staging, name);
         stagedPartPaths.push(p);
         return FileByteSink.create(p, overwrite);
       },
     });
-    const stagedManifestPath = path.join(stageDir, result.manifestFileName);
+    const stagedManifestPath = path.join(staging, result.manifestFileName);
     await fs.writeFile(stagedManifestPath, result.manifestText, { encoding: 'utf8', flag: 'wx' });
     const partPaths = result.partNames.map((name) => path.join(outputDir, name));
     const manifestPath = path.join(outputDir, result.manifestFileName);
@@ -321,7 +340,7 @@ async function handleEncrypt(raw: unknown, sender: Electron.WebContents): Promis
   } finally {
     await source?.close();
     currentOp = null;
-    if (!preserveStage) await fs.rm(stageDir, { recursive: true, force: true });
+    if (stageDir && !preserveStage) await fs.rm(stageDir, { recursive: true, force: true });
   }
 }
 
@@ -335,59 +354,70 @@ async function handleDecrypt(raw: unknown, sender: Electron.WebContents): Promis
   const overwrite = params?.overwrite === true;
   const partPaths = params?.partPaths ? assertApprovedPathArray(params.partPaths, 'partPaths', MAX_PART_COUNT) : undefined;
 
-  const manifest = parseManifestBytes(await readFileBytes(manifestPath, MAX_MANIFEST_SIZE));
-
-  // Resolve part paths: explicit list, else sibling files of the manifest.
-  const dir = path.dirname(manifestPath);
-  const resolved: { name: string; path: string }[] = [];
-  const provided = new Map<string, string>();
-  if (partPaths) for (const p of partPaths) provided.set(path.basename(p), p);
-  for (const part of manifest.parts) {
-    const p = provided.get(part.name) ?? path.join(dir, part.name);
-    resolved.push({ name: part.name, path: p });
-  }
-  const existing = await existingPaths(resolved.map((r) => r.path));
-  const existingSet = new Set(existing);
-  const missing = resolved.filter((r) => !existingSet.has(r.path)).map((r) => r.name);
-  if (missing.length > 0) {
+  // One operation at a time (same single-flight rule as handleEncrypt).
+  if (currentOp) {
     throw new HandshackError(
-      'missing-parts',
-      missing.join(', '),
-      `Missing ${missing.length} part(s): ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`,
+      'invalid-input',
+      'operation already in progress',
+      'Another operation is already in progress.',
     );
   }
-
   const ctrl = new AbortController();
   currentOp = ctrl;
-  const report = (e: ProgressEvent) => sender.send('op:progress', e);
 
-  const sources = await Promise.all(
-    resolved.map(async (r) => ({
-      name: r.name,
-      source: await FileByteSource.open(r.path),
-    })),
-  );
   try {
-    const result = await decryptPackage({
-      manifest,
-      parts: sources.map((s) => ({ name: s.name, source: s.source })),
-      password,
-      provider,
-      signal: ctrl.signal,
-      onProgress: report,
-      openOutput: () => FileByteSink.create(savePath, overwrite),
-    });
-    return {
-      outPath: savePath,
-      fileName: result.fileName,
-      size: result.size,
-      sha256Hex: result.sha256Hex,
-      packageId: result.packageId,
-    };
-  } finally {
-    for (const s of sources) {
-      await s.source.close?.();
+    const manifest = parseManifestBytes(await readFileBytes(manifestPath, MAX_MANIFEST_SIZE));
+
+    // Resolve part paths: explicit list, else sibling files of the manifest.
+    const dir = path.dirname(manifestPath);
+    const resolved: { name: string; path: string }[] = [];
+    const provided = new Map<string, string>();
+    if (partPaths) for (const p of partPaths) provided.set(path.basename(p), p);
+    for (const part of manifest.parts) {
+      const p = provided.get(part.name) ?? path.join(dir, part.name);
+      resolved.push({ name: part.name, path: p });
     }
+    const existing = await existingPaths(resolved.map((r) => r.path));
+    const existingSet = new Set(existing);
+    const missing = resolved.filter((r) => !existingSet.has(r.path)).map((r) => r.name);
+    if (missing.length > 0) {
+      throw new HandshackError(
+        'missing-parts',
+        missing.join(', '),
+        `Missing ${missing.length} part(s): ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`,
+      );
+    }
+
+    const report = (e: ProgressEvent) => sender.send('op:progress', e);
+    const sources = await Promise.all(
+      resolved.map(async (r) => ({
+        name: r.name,
+        source: await FileByteSource.open(r.path),
+      })),
+    );
+    try {
+      const result = await decryptPackage({
+        manifest,
+        parts: sources.map((s) => ({ name: s.name, source: s.source })),
+        password,
+        provider,
+        signal: ctrl.signal,
+        onProgress: report,
+        openOutput: () => FileByteSink.create(savePath, overwrite),
+      });
+      return {
+        outPath: savePath,
+        fileName: result.fileName,
+        size: result.size,
+        sha256Hex: result.sha256Hex,
+        packageId: result.packageId,
+      };
+    } finally {
+      for (const s of sources) {
+        await s.source.close?.();
+      }
+    }
+  } finally {
     currentOp = null;
   }
 }

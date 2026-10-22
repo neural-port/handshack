@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="600" viewBox="0 0 560 600" fill="none" stroke="#9aa3b0" stroke-opacity="0.08" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Row 1: access and identity -->
+  <rect x="48" y="52" width="28" height="22" rx="3"/>
+  <path d="M54 52v-8a8 8 0 0 1 16 0v8"/>
+  <circle cx="62" cy="62" r="2"/>
+  <path d="M62 64v5"/>
+
+  <circle cx="207" cy="58" r="7"/>
+  <path d="M214 58h34M238 58v7M247 58v6"/>
+
+  <path d="M338 64a16 16 0 0 1 32 0v11"/>
+  <path d="M346 64a8 8 0 0 1 16 0v17"/>
+  <path d="M342 83a17 17 0 0 0 23-12M350 88a20 20 0 0 0 8-11"/>
+
+  <path d="M490 43l17 6v15c0 12-7 20-17 25-10-5-17-13-17-25V49z"/>
+  <path d="M483 63l5 5 10-11"/>
+
+  <!-- Row 2: privacy and transfer -->
+  <rect x="43" y="164" width="68" height="24" rx="3"/>
+  <path d="M55 172v8M51 176h8M70 172v8M66 176h8M85 172v8M81 176h8M100 172v8M96 176h8"/>
+
+  <path d="M188 177c7-8 15-12 23-12s16 4 23 12c-7 8-15 12-23 12s-16-4-23-12z"/>
+  <path d="M204 165l15 24"/>
+
+  <rect x="324" y="168" width="17" height="24" rx="2"/>
+  <path d="M310 175h14M310 185h14M345 173l12-9M345 180h17M345 187l12 9"/>
+  <rect x="360" y="158" width="12" height="14" rx="1.5"/>
+  <rect x="360" y="176" width="12" height="14" rx="1.5"/>
+  <rect x="360" y="194" width="12" height="14" rx="1.5"/>
+
+  <path d="M466 188h38a10 10 0 0 0 1-20 14 14 0 0 0-27-3 11 11 0 0 0-12 23z"/>
+  <path d="M485 173v19M478 180l7-7 7 7"/>
+
+  <!-- Row 3: encrypted data and defense -->
+  <text x="47" y="278" font-family="monospace" font-size="10" letter-spacing="2">0101</text>
+  <text x="47" y="291" font-family="monospace" font-size="10" letter-spacing="2">1010</text>
+  <text x="47" y="304" font-family="monospace" font-size="10" letter-spacing="2">0011</text>
+  <path d="M45 313h48"/>
+
+  <rect x="190" y="273" width="52" height="36" rx="4"/>
+  <circle cx="208" cy="291" r="10"/>
+  <circle cx="208" cy="291" r="2.5"/>
+  <path d="M223 283h13M223 289h13M223 301h2"/>
+
+  <path d="M347 258l-13 6-10 13 8 9 6-6-2 35h32l-2-35 6 6 8-9-10-13-13-6-5 8z"/>
+  <path d="M339 265l8 12 5-9 5 9 8-12M352 277l-5 14 10 8 10-8-5-14M357 299v16"/>
+
+  <path d="M478 279a14 14 0 0 1 28 0v10h-28z"/>
+  <path d="M474 279q18-13 36 0l-4 7h-28z"/>
+  <path d="M477 286h30l-4 9h-22z"/>
+  <path d="M485 290v1M499 290v1"/>
+  <path d="M472 314q2-13 20-13t20 13"/>
+
+  <!-- Row 4: investigation and devices -->
+  <path d="M45 394q20-13 40 0l-4 6H49z"/>
+  <path d="M51 393l-3-8 10 3 8-7 8 7 10-3-4 8"/>
+  <circle cx="65" cy="411" r="11"/>
+  <path d="M61 412h8M55 409h4M71 409h4M47 437q2-15 18-15t18 15M65 422v15"/>
+  <circle cx="91" cy="419" r="6"/>
+  <path d="M95 423l6 6"/>
+
+  <ellipse cx="215" cy="390" rx="25" ry="8"/>
+  <path d="M190 390v36c0 5 11 8 25 8s25-3 25-8v-36"/>
+  <path d="M190 402c0 5 11 8 25 8s25-3 25-8M190 414c0 5 11 8 25 8s25-3 25-8"/>
+
+  <rect x="324" y="392" width="54" height="34" rx="2"/>
+  <path d="M329 397h44v24h-44zM318 431h66l-6 6h-54z"/>
+
+  <rect x="479" y="389" width="30" height="38" rx="2"/>
+  <path d="M485 389v-8a9 9 0 0 1 18 0v3"/>
+  <circle cx="494" cy="407" r="2.5"/>
+  <path d="M494 410v5"/>
+
+  <!-- Row 5: package integrity -->
+  <rect x="46" y="503" width="12" height="15" rx="1.5"/>
+  <rect x="46" y="523" width="12" height="15" rx="1.5"/>
+  <rect x="46" y="543" width="12" height="15" rx="1.5"/>
+  <path d="M62 510l15-10M62 530h17M62 550l15 10"/>
+  <path d="M83 503h18l7 7v48H83z"/>
+
+  <path d="M190 510h48M190 518h36M190 526h44M190 534h28"/>
+  <path d="M204 504v36M230 504v36"/>
+
+  <rect x="330" y="501" width="34" height="34" rx="2"/>
+  <rect x="335" y="506" width="8" height="8"/>
+  <rect x="351" y="506" width="8" height="8"/>
+  <rect x="335" y="522" width="8" height="8"/>
+  <rect x="351" y="522" width="8" height="8"/>
+
+  <path d="M490 493l17 6v15c0 12-7 20-17 25-10-5-17-13-17-25v-15z"/>
+  <rect x="484" y="508" width="12" height="10" rx="1"/>
+  <path d="M486 508v-4a4 4 0 0 1 8 0v4"/>
+</svg>

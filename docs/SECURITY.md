@@ -24,6 +24,9 @@ it deliberately does not, and how to report vulnerabilities.
 - **Fail-closed errors** — every check throws a typed `HandshackError`; output
   is only committed after all authentication succeeds. Partial plaintext is
   deleted/discarded on failure or cancel.
+- **Input policy enforced before cryptography** — files up to 1 GB; videos
+  must be 1080p or smaller, verified from container headers (MP4/MOV/3GP/MKV/WebM).
+  Unverifiable video containers are rejected rather than accepted unchecked.
 - **No remote storage** — file contents and passwords are never intentionally
   transmitted. The web demo has no backend at all; the desktop app works fully
   offline.
@@ -100,3 +103,22 @@ will credit reporters in release notes if desired.
 Dependencies are kept minimal and standard: `hash-wasm` (scrypt/SHA-256 WASM
 for browsers — the platform APIs lack scrypt), `fflate` (ZIP container I/O),
 React/Vite/Electron toolchain. No telemetry, no analytics, no remote fonts.
+
+## Data protection posture (IT Act 2000 alignment)
+
+HandShack is a local processing tool, not a data controller service. This section
+records what that means for the Information Technology Act, 2000 and the SPDI
+Rules, 2011, so reviewers do not have to infer it.
+
+| Obligation | Position |
+| --- | --- |
+| Collection of sensitive personal data | None. No account, no profile, no telemetry, no analytics, no cookies. The app never asks for identity data. |
+| Consent and retention policy | Not triggered — nothing is collected or retained server-side. |
+| Data at rest on a server | None. The web build is static; packages are written to the user's own disk. |
+| Intermediary obligations (s.79) | Not applicable. There is no service, no hosted content, and no user-generated content stored by the project. |
+| Breach notification | No server-side store exists to breach. If a deployment host keeps access logs, those logs belong to that host and are outside this codebase. |
+| Electronic records integrity (s.65A/65B) | Records are protected by AES-256-GCM and SHA-256 manifests. This provides integrity, not statutory digital signatures. |
+| Non-repudiation | Not provided. HandShack does not sign packages or assert author identity; anyone holding all parts and the password can open a package. |
+
+If a deployment adds accounts, uploads, or analytics, this table no longer
+applies and a privacy notice with consent and retention terms becomes mandatory.

@@ -23,9 +23,10 @@
     "build": "npm run build --workspaces --if-present",
     "build:web": "npm run build --workspace @handshack/web",
     "build:desktop": "npm run build --workspace @handshack/desktop",
-    "package:win": "npm run package:win --workspace @handshack/desktop",
+    "package:win": "npm run package:win --workspace @handshack/desktop && node scripts/write-checksums.mjs",
     "verify:release": "node scripts/verify-release.mjs",
-    "serve:web": "node scripts/serve-web.mjs"
+    "serve:web": "node scripts/serve-web.mjs",
+    "checksums": "node scripts/write-checksums.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

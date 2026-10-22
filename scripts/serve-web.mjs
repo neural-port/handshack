@@ -33,7 +33,13 @@ if (!fs.existsSync(root)) {
 }
 
 createServer((req, res) => {
-  let url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  let url;
+  try {
+    url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  } catch {
+    res.writeHead(400).end('malformed request');
+    return;
+  }
   if (url === '/') return res.writeHead(302, { location: `${base}/` }).end();
   if (!url.startsWith(base)) {
     res.writeHead(404).end(`try ${base}/`);

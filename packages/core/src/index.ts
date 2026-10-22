@@ -3,6 +3,7 @@ export * from './errors.js';
 export * from './types.js';
 export * from './encoding.js';
 export * from './validation.js';
+export * from './media/index.js';
 
 export { serializeHeader, parseHeader, validateHeader } from './crypto/header.js';
 export {

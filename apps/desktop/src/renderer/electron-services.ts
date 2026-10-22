@@ -2,7 +2,7 @@
  * Desktop implementation of PlatformServices — every operation is a narrow IPC
  * call into the privileged main process via the preload bridge (window.handshack).
  */
-import { HandshackError, type ProgressCallback } from '@handshack/core';
+import { HandshackError, toHandshackError, type ProgressCallback } from '@handshack/core';
 import type {
   DecryptJob,
   DecryptResult,
@@ -24,7 +24,13 @@ function decode(err: unknown): HandshackError {
   const msg = err instanceof Error ? err.message : String(err);
   // IPC wraps as "Error invoking remote method 'ch': HandshackError: code|msg"
   const m = /([a-z-]+)\|(.+)$/s.exec(msg);
-  if (m) return new HandshackError(m[1]!.trim().split(':').pop()!.trim() as never, undefined, m[2]);
+  if (m) {
+    const code = m[1]!.trim().split(':').pop()!.trim();
+    // Only codes from our own taxonomy are honored — toHandshackError maps
+    // anything else to the fallback.
+    const known = toHandshackError({ code });
+    return new HandshackError(known.code, undefined, m[2]);
+  }
   return new HandshackError('internal-error', msg);
 }
 

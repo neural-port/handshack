@@ -8,6 +8,7 @@ import {
   KDF_MIN_N,
   MAX_FILE_NAME,
   MAX_FILE_SIZE,
+  MAX_INPUT_FILE_SIZE,
   MAX_MANIFEST_SIZE,
   MAX_PART_COUNT,
   MAX_PART_NAME,
@@ -116,11 +117,11 @@ export function validateInputFileSize(size: number): void {
   if (!Number.isSafeInteger(size) || size < 0) {
     throw new HandshackError('invalid-input', 'invalid file size');
   }
-  if (size > MAX_FILE_SIZE) {
+  if (size > MAX_INPUT_FILE_SIZE) {
     throw new HandshackError(
       'file-too-large',
-      `size ${size} exceeds ${MAX_FILE_SIZE}`,
-      'The selected file is larger than the 4 GiB maximum supported by this version of HandShack.',
+      `size ${size} exceeds ${MAX_INPUT_FILE_SIZE}`,
+      'The selected file is larger than the 1 GB maximum supported by this version of HandShack.',
     );
   }
 }
