@@ -122,5 +122,5 @@ signing is configured — see `docs/RELEASE_PROCESS.md`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE). HandShack is an independent project, not
-affiliated with or endorsed by any existing company.
+MIT — see [LICENSE](LICENSE). HandShack is a product of
+NeuralWeb Technologies, Goa.

@@ -434,6 +434,9 @@ function createWindow(): void {
     autoHideMenuBar: true,
     backgroundColor: '#08090b',
     title: 'HandShack',
+    // Packaged builds take the taskbar icon from the exe resource; dev runs the
+    // bare electron.exe, so point the window at our artwork explicitly.
+    icon: path.join(__dirname, '../../build/icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,

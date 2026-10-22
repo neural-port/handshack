@@ -56,10 +56,9 @@ export function AboutPage() {
           </li>
         </ul>
 
-        <h2>Not affiliated</h2>
+        <h2>A NeuralWeb Technologies product</h2>
         <p>
-          HandShack is an independent project. It is not affiliated with or endorsed by any
-          existing company or product.
+          HandShack is developed and maintained by NeuralWeb Technologies, Goa.
         </p>
       </div>
     </div>
